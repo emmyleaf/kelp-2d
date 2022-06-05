@@ -2,6 +2,7 @@
 name = "kelp"
 version = "0.1.0"
 edition = "2021"
+license = "MIT OR Apache-2.0"
 
 [lib]
 crate-type = ["rlib", "cdylib"]
@@ -9,6 +10,7 @@ crate-type = ["rlib", "cdylib"]
 [dependencies]
 bytemuck = "1.9.1"
 naga = "0.8.5"
+pollster = "0.2.5"
 raw-window-handle = "0.4.3"
 wgpu = { version = "0.12.0", features = ["glsl"] }
 
@@ -16,6 +18,5 @@ wgpu = { version = "0.12.0", features = ["glsl"] }
 env_logger = "0.9"
 glam = "0.20.5"
 png = "0.17.5"
-pollster = "0.2"
 rand = "0.8.5"
 winit = "0.26.1"
