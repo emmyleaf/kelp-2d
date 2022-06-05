@@ -1,3 +1,4 @@
+use kelp_2d::Kelp;
 use rand::Rng;
 use std::{fs::File, ops::Range, path::Path};
 use winit::{
@@ -9,7 +10,7 @@ use winit::{
 async fn run(event_loop: EventLoop<()>, window: Window) {
     let size = window.inner_size();
 
-    let mut kelp = kelp::Kelp::new(&window, size.width, size.height).await;
+    let mut kelp = Kelp::new(&window, size.width, size.height).await;
 
     // Set initial camera matrices
     let projection = glam::Mat4::orthographic_rh(0.0, size.width as f32, size.height as f32, 0.0, 0.0, 1.0);

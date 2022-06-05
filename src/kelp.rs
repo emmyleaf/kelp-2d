@@ -242,10 +242,7 @@ impl Kelp {
     }
 
     pub fn begin_frame(&mut self) -> FrameState {
-        let frame = self
-            .surface
-            .get_current_texture()
-            .expect("Failed to acquire next swap chain texture");
+        let frame = self.surface.get_current_texture().expect("Failed to acquire next swap chain texture");
         let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
         let encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Frame Command Encoder"),

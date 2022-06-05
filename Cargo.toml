@@ -1,8 +1,12 @@
 [package]
-name = "kelp"
+name = "kelp-2d"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
+description = "2D sprite renderer using wgpu with C ffi"
+repository = "https://github.com/emmyleaf/kelp-2d"
+keywords = ["2d", "gamedev", "graphics", "renderer", "wgpu"]
+categories = ["game-development", "graphics", "rendering", "rendering::engine"]
 
 [lib]
 crate-type = ["rlib", "cdylib"]
