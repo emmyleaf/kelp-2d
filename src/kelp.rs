@@ -1,5 +1,6 @@
 use crate::FrameState;
 use naga::FastHashMap;
+use pollster::FutureExt;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use std::borrow::Cow;
 use wgpu::util::DeviceExt;
@@ -24,7 +25,7 @@ pub struct Kelp {
 }
 
 impl Kelp {
-    pub async fn new(window: &dyn HasRawWindowHandle, width: u32, height: u32) -> Kelp {
+    pub fn new(window: &dyn HasRawWindowHandle, width: u32, height: u32) -> Kelp {
         let instance = wgpu::Instance::new(wgpu::Backends::all());
         let surface = unsafe { instance.create_surface(&window) };
         let adapter = instance
@@ -32,7 +33,7 @@ impl Kelp {
                 compatible_surface: Some(&surface),
                 ..Default::default()
             })
-            .await
+            .block_on()
             .expect("Failed to find an appropriate adapter");
         let swapchain_format = surface.get_preferred_format(&adapter).unwrap();
 
@@ -47,7 +48,7 @@ impl Kelp {
                 },
                 None,
             )
-            .await
+            .block_on()
             .expect("Failed to create device");
 
         // Load the shaders from disk
@@ -199,26 +200,18 @@ impl Kelp {
             ..wgpu::SamplerDescriptor::default()
         });
 
-        // Create bind groups
+        // Create vertex bind group
         let vertex_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Vertex Bind Group"),
             layout: &vertex_bind_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &camera_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
+                    resource: camera_buffer.as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &instance_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
+                    resource: instance_buffer.as_entire_binding(),
                 },
             ],
         });
@@ -277,8 +270,8 @@ impl Kelp {
             &wgpu::TextureDescriptor {
                 label: Some(label),
                 size: wgpu::Extent3d {
-                    width: width,
-                    height: height,
+                    width,
+                    height,
                     depth_or_array_layers: 1,
                 },
                 mip_level_count: 1,
@@ -302,8 +295,7 @@ impl Kelp {
         self.surface.configure(&self.device, &self.config);
     }
 
-    pub fn update_buffer<T: bytemuck::NoUninit>(&self, buffer: &wgpu::Buffer, data: &[T]) {
-        let bytes = bytemuck::cast_slice(data);
-        self.queue.write_buffer(buffer, 0, bytes);
+    pub fn update_buffer(&self, buffer: &wgpu::Buffer, data: &[u8]) {
+        self.queue.write_buffer(buffer, 0, data);
     }
 }

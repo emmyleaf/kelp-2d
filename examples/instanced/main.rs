@@ -7,10 +7,15 @@ use winit::{
     window::Window,
 };
 
+pub fn update_buffer<T: bytemuck::NoUninit>(queue: &wgpu::Queue, buffer: &wgpu::Buffer, data: &[T]) {
+    let bytes = bytemuck::cast_slice(data);
+    queue.write_buffer(buffer, 0, bytes);
+}
+
 async fn run(event_loop: EventLoop<()>, window: Window) {
     let size = window.inner_size();
 
-    let mut kelp = Kelp::new(&window, size.width, size.height).await;
+    let mut kelp = Kelp::new(&window, size.width, size.height);
 
     // Set initial camera matrices
     let projection = glam::Mat4::orthographic_rh(0.0, size.width as f32, size.height as f32, 0.0, 0.0, 1.0);
@@ -18,7 +23,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     projection.write_cols_to_slice(&mut camera_data);
     glam::Mat4::IDENTITY.write_cols_to_slice(&mut camera_data[16..32]);
 
-    kelp.update_buffer(&kelp.vertex_group.camera_buffer, &camera_data);
+    update_buffer(&kelp.queue, &kelp.vertex_group.camera_buffer, &camera_data);
 
     // Create fragment bind group & resources
     let decoder = png::Decoder::new(File::open(Path::new("./examples/instanced/petal.png")).unwrap());
@@ -51,7 +56,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
         instance_data.extend_from_slice(&world.to_cols_array());
     }
 
-    kelp.update_buffer(&kelp.vertex_group.instance_buffer, &instance_data.as_slice());
+    update_buffer(&kelp.queue, &kelp.vertex_group.instance_buffer, instance_data.as_slice());
 
     event_loop.run(move |event, _, control_flow| {
         // Have the closure take ownership of kelp
