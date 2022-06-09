@@ -1,19 +1,21 @@
-use crate::FrameState;
+use crate::{KelpTexture, SurfaceFrame};
 use naga::FastHashMap;
 use pollster::FutureExt;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-use std::borrow::Cow;
-use wgpu::util::DeviceExt;
+use std::{borrow::Cow, num::NonZeroU64};
+use wgpu::{util::DeviceExt, RenderPassDescriptor};
 
+#[derive(Debug)]
 pub struct VertexGroup {
     pub camera_buffer: wgpu::Buffer,
     pub instance_buffer: wgpu::Buffer,
     pub bind: wgpu::BindGroup,
 }
 
+#[derive(Debug)]
 pub struct Kelp {
     pub window_handle: RawWindowHandle,
-    pub surface: wgpu::Surface,
+    pub window_surface: wgpu::Surface,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub pipeline: wgpu::RenderPipeline,
@@ -26,13 +28,10 @@ pub struct Kelp {
 
 impl Kelp {
     pub fn new(window: &dyn HasRawWindowHandle, width: u32, height: u32) -> Kelp {
-        let instance = wgpu::Instance::new(wgpu::Backends::all());
+        let instance = wgpu::Instance::new(wgpu::Backends::VULKAN);
         let surface = unsafe { instance.create_surface(&window) };
         let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                compatible_surface: Some(&surface),
-                ..Default::default()
-            })
+            .request_adapter(&wgpu::RequestAdapterOptions { compatible_surface: Some(&surface), ..Default::default() })
             .block_on()
             .expect("Failed to find an appropriate adapter");
         let swapchain_format = surface.get_preferred_format(&adapter).unwrap();
@@ -50,6 +49,17 @@ impl Kelp {
             )
             .block_on()
             .expect("Failed to create device");
+
+        // Configure surface
+        let config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format: swapchain_format,
+            width,
+            height,
+            present_mode: wgpu::PresentMode::Fifo,
+        };
+
+        surface.configure(&device, &config);
 
         // Load the shaders from disk
         let vertex_shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
@@ -77,7 +87,7 @@ impl Kelp {
             ty: wgpu::BindingType::Buffer {
                 ty: wgpu::BufferBindingType::Uniform,
                 has_dynamic_offset: false,
-                min_binding_size: None, // TODO: might want to set this
+                min_binding_size: NonZeroU64::new(64),
             },
             count: None,
         };
@@ -88,7 +98,7 @@ impl Kelp {
             ty: wgpu::BindingType::Buffer {
                 ty: wgpu::BufferBindingType::Storage { read_only: true },
                 has_dynamic_offset: false,
-                min_binding_size: None, // TODO: might want to set this
+                min_binding_size: NonZeroU64::new(16 + 64 + 64),
             },
             count: None,
         };
@@ -162,16 +172,6 @@ impl Kelp {
             multiview: None,
         });
 
-        let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: swapchain_format,
-            width,
-            height,
-            present_mode: wgpu::PresentMode::Fifo,
-        };
-
-        surface.configure(&device, &config);
-
         // Create buffers
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
@@ -189,7 +189,7 @@ impl Kelp {
 
         let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Instance Buffer"),
-            size: 2048 * (16 + 64 + 64),
+            size: 16 << 20, // 16MB
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -205,75 +205,45 @@ impl Kelp {
             label: Some("Vertex Bind Group"),
             layout: &vertex_bind_layout,
             entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: camera_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: instance_buffer.as_entire_binding(),
-                },
+                wgpu::BindGroupEntry { binding: 0, resource: camera_buffer.as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 1, resource: instance_buffer.as_entire_binding() },
             ],
         });
 
         Self {
             window_handle: window.raw_window_handle(),
-            surface,
+            window_surface: surface,
             device,
             queue,
             pipeline,
             config,
             point_sampler,
             vertex_buffer,
-            vertex_group: VertexGroup {
-                camera_buffer,
-                instance_buffer,
-                bind: vertex_bind_group,
-            },
+            vertex_group: VertexGroup { camera_buffer, instance_buffer, bind: vertex_bind_group },
             fragment_bind_layout,
         }
     }
 
-    pub fn begin_frame(&mut self) -> FrameState {
-        let frame = self.surface.get_current_texture().expect("Failed to acquire next swap chain texture");
-        let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Frame Command Encoder"),
-        });
+    pub fn begin_frame(&self) -> SurfaceFrame {
+        let surface = self.window_surface.get_current_texture().expect("Failed to acquire next swap chain texture");
+        let view = surface.texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-        FrameState { frame, view, encoder }
+        SurfaceFrame {
+            surface,
+            view,
+            encoder,
+            instances: Vec::new(),
+            groups: Vec::new(),
+        }
     }
 
-    pub fn create_fragment_bind_group(&self, label: &str, texture: &wgpu::Texture) -> wgpu::BindGroup {
-        self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some(label),
-            layout: &self.fragment_bind_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture.create_view(&wgpu::TextureViewDescriptor {
-                        label: Some(&[label, " Texture View"].concat()),
-                        ..Default::default()
-                    })),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&self.point_sampler),
-                },
-            ],
-        })
-    }
-
-    pub fn create_texture_with_data(&mut self, label: &str, width: u32, height: u32, data: &[u8]) -> wgpu::Texture {
-        self.device.create_texture_with_data(
+    pub fn create_texture_with_data(&mut self, width: u32, height: u32, data: &[u8]) -> KelpTexture {
+        let texture = self.device.create_texture_with_data(
             &self.queue,
             &wgpu::TextureDescriptor {
-                label: Some(label),
-                size: wgpu::Extent3d {
-                    width,
-                    height,
-                    depth_or_array_layers: 1,
-                },
+                label: None,
+                size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
@@ -281,21 +251,61 @@ impl Kelp {
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             },
             data,
-        )
+        );
+        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &self.fragment_bind_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(
+                        &texture.create_view(&wgpu::TextureViewDescriptor::default()),
+                    ),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&self.point_sampler),
+                },
+            ],
+        });
+        KelpTexture { texture, bind_group }
     }
 
-    pub fn end_frame(&mut self, frame_state: FrameState) {
-        self.queue.submit(Some(frame_state.encoder.finish()));
-        frame_state.frame.present();
+    pub fn draw_frame(&self, mut frame: SurfaceFrame) {
+        self.update_buffer(&self.vertex_group.instance_buffer, frame.instances.as_slice());
+
+        {
+            let mut pass = frame.encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                color_attachments: &[wgpu::RenderPassColorAttachment {
+                    view: &frame.view,
+                    resolve_target: None,
+                    ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store: true },
+                }],
+                ..RenderPassDescriptor::default()
+            });
+
+            pass.set_pipeline(&self.pipeline);
+            pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            pass.set_bind_group(0, &self.vertex_group.bind, &[]);
+
+            for group in frame.groups {
+                pass.set_bind_group(1, group.bind_group, &[]);
+                pass.draw(0..4, group.range);
+            }
+        }
+
+        self.queue.submit(Some(frame.encoder.finish()));
+        frame.surface.present();
     }
 
     pub fn set_surface_size(&mut self, width: u32, height: u32) {
         self.config.width = width;
         self.config.height = height;
-        self.surface.configure(&self.device, &self.config);
+        self.window_surface.configure(&self.device, &self.config);
     }
 
-    pub fn update_buffer(&self, buffer: &wgpu::Buffer, data: &[u8]) {
-        self.queue.write_buffer(buffer, 0, data);
+    pub fn update_buffer<T: bytemuck::NoUninit>(&self, buffer: &wgpu::Buffer, data: &[T]) {
+        let bytes = bytemuck::cast_slice(data);
+        self.queue.write_buffer(buffer, 0, bytes);
     }
 }

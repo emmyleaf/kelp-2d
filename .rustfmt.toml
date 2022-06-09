@@ -4,3 +4,5 @@ array_width = 100
 attr_fn_like_width = 100
 chain_width = 100
 fn_call_width = 100
+
+struct_lit_width = 60

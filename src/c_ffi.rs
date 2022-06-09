@@ -1,68 +1,78 @@
-use crate::{FrameState, Kelp, Window};
+use crate::{InstanceData, Kelp, KelpTexture, SurfaceFrame, Window};
 use core::{ffi::c_size_t, slice};
 
-// type BufferId = wgpu::backend::Context::BufferId;
-
 static mut KELP: Option<Kelp> = None;
-static mut FRAME: Option<FrameState> = None;
-static mut PASS: Option<wgpu::RenderPass> = None;
+
+const KELP_NOT_FOUND: &str = "Cannot call any functions before initialise or after uninitialise.";
 
 #[no_mangle]
-pub unsafe extern "C" fn initialise(window: Window, width: u32, height: u32) {
-    KELP = Some(Kelp::new(&window, width, height));
+pub unsafe extern "C" fn initialise(window: Window) {
+    env_logger::init();
+    KELP = Some(Kelp::new(&window, window.width, window.height));
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn begin_frame() {
-    let kelp = KELP.as_mut().expect("Cannot call begin_frame before initialise or after dispose.");
-    FRAME = Some(kelp.begin_frame());
-}
-
-// TODO: finish this function & the rest :)
-#[no_mangle]
-pub unsafe extern "C" fn begin_render_pass() {
-    let kelp = KELP.as_ref().expect("Cannot call begin_render_pass before initialise or after dispose.");
-    let frame = FRAME.as_mut().expect("Cannot call begin_render_pass before begin_frame.");
-    let mut render_pass = frame.begin_render_pass();
-    render_pass.set_pipeline(&kelp.pipeline);
-    render_pass.set_vertex_buffer(0, kelp.vertex_buffer.slice(..));
-    render_pass.set_bind_group(0, &kelp.vertex_group.bind, &[]);
-    PASS = Some(render_pass);
+pub unsafe extern "C" fn add_instances(
+    frame_ptr: *mut SurfaceFrame,
+    texture_ptr: *mut KelpTexture,
+    instance_ptr: *const InstanceData,
+    count: u32,
+) {
+    let frame = frame_ptr.as_mut().expect("frame_ptr not set to a valid SurfaceFrame");
+    let texture = texture_ptr.as_ref().expect("texture_ptr not set to a valid KelpTexture");
+    assert!(!instance_ptr.is_null());
+    let instances = slice::from_raw_parts(instance_ptr, count as usize);
+    frame.add_instances(texture, instances);
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn dispose() {
-    _ = KELP.take();
-    _ = FRAME.take();
-    _ = PASS.take();
+pub unsafe extern "C" fn begin_frame<'a>() -> *const SurfaceFrame<'a> {
+    let kelp = KELP.as_mut().expect(KELP_NOT_FOUND);
+    Box::into_raw(Box::new(kelp.begin_frame()))
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn end_frame() {
-    let kelp = KELP.as_mut().expect("Cannot call end_frame before initialise or after dispose.");
-    let frame = FRAME.take().expect("Cannot call end_frame before begin_frame.");
-    kelp.end_frame(frame);
+pub unsafe extern "C" fn create_texture_with_data(
+    width: u32,
+    height: u32,
+    data_ptr: *const u8,
+    data_len: c_size_t,
+) -> *mut KelpTexture {
+    let kelp = KELP.as_mut().expect(KELP_NOT_FOUND);
+    assert!(!data_ptr.is_null());
+    let data = slice::from_raw_parts(data_ptr, data_len);
+    let kelp_texture = kelp.create_texture_with_data(width, height, data);
+    Box::into_raw(Box::new(kelp_texture))
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn set_surface_size(width: u32, height: u32) {
-    let kelp = KELP.as_mut().expect("Cannot call set_surface_size before initialise or after dispose.");
-    kelp.set_surface_size(width, height)
+pub unsafe extern "C" fn draw_frame(frame_ptr: *mut SurfaceFrame) {
+    let kelp = KELP.as_mut().expect(KELP_NOT_FOUND);
+    assert!(!frame_ptr.is_null());
+    kelp.draw_frame(Box::into_inner(Box::from_raw(frame_ptr)));
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn update_camera_buffer(pointer: *const u8, length: c_size_t) {
-    let kelp = KELP.as_mut().expect("Cannot call update_camera_buffer before initialise or after dispose.");
-    assert!(!pointer.is_null());
-    assert!(length == 128);
-    let data = slice::from_raw_parts(pointer, length);
+pub unsafe extern "C" fn free_kelp_texture(texture: *mut KelpTexture) {
+    _ = Box::from_raw(texture);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn set_camera(data_ptr: *const u8, data_len: c_size_t) {
+    let kelp = KELP.as_mut().expect(KELP_NOT_FOUND);
+    assert!(!data_ptr.is_null());
+    assert!(data_len == 64);
+    let data = slice::from_raw_parts(data_ptr, data_len);
     kelp.update_buffer(&kelp.vertex_group.camera_buffer, data)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn update_instance_buffer(pointer: *const u8, length: c_size_t) {
-    let kelp = KELP.as_mut().expect("Cannot call update_instance_buffer before initialise or after dispose.");
-    assert!(!pointer.is_null());
-    let data = slice::from_raw_parts(pointer, length);
-    kelp.update_buffer(&kelp.vertex_group.instance_buffer, data)
+pub unsafe extern "C" fn set_surface_size(width: u32, height: u32) {
+    let kelp = KELP.as_mut().expect(KELP_NOT_FOUND);
+    kelp.set_surface_size(width, height)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn uninitialise() {
+    _ = KELP.take();
 }
