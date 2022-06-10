@@ -7,11 +7,6 @@ use winit::{
     window::Window,
 };
 
-pub fn update_buffer<T: bytemuck::NoUninit>(queue: &wgpu::Queue, buffer: &wgpu::Buffer, data: &[T]) {
-    let bytes = bytemuck::cast_slice(data);
-    queue.write_buffer(buffer, 0, bytes);
-}
-
 async fn run(event_loop: EventLoop<()>, window: Window) {
     let size = window.inner_size();
 
@@ -19,7 +14,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
 
     // Set initial camera matrix
     let projection = glam::Mat4::orthographic_rh(0.0, size.width as f32, size.height as f32, 0.0, 0.0, 1.0);
-    update_buffer(&kelp.queue, &kelp.vertex_group.camera_buffer, &projection.to_cols_array());
+    kelp.update_buffer(&kelp.vertex_group.camera_buffer, &projection.to_cols_array());
 
     // Create petal texture & bind group
     let decoder = png::Decoder::new(File::open(Path::new("./examples/instanced/petal.png")).unwrap());
@@ -47,7 +42,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
         instance_data.push(InstanceData { color, source, world });
     }
     let mut instance_data_2: Vec<InstanceData> = vec![];
-    for _ in 0..(1 << 16) {
+    for _ in 0..(1 << 14) {
         let color =
             [rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0)];
         let source = SourceTransform::default();
@@ -75,10 +70,10 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                 window.request_redraw();
             }
             Event::MainEventsCleared => {
-                let mut frame = kelp.begin_frame();
+                let mut frame = kelp.begin_surface_frame();
                 frame.add_instances(&petal_texture, instance_data.as_slice());
                 frame.add_instances(&petal_texture, instance_data_2.as_slice());
-                kelp.draw_frame(frame);
+                kelp.end_surface_frame(frame);
             }
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => *control_flow = ControlFlow::Exit,
             _ => {}

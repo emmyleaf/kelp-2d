@@ -26,9 +26,12 @@ pub unsafe extern "C" fn add_instances(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn begin_frame<'a>() -> *const SurfaceFrame<'a> {
+pub unsafe extern "C" fn begin_surface_frame<'a>(camera_ptr: *const u8) -> *const SurfaceFrame<'a> {
     let kelp = KELP.as_mut().expect(KELP_NOT_FOUND);
-    Box::into_raw(Box::new(kelp.begin_frame()))
+    assert!(!camera_ptr.is_null());
+    let camera_data = slice::from_raw_parts(camera_ptr, 64_usize);
+    kelp.update_buffer(&kelp.vertex_group.camera_buffer, camera_data);
+    Box::into_raw(Box::new(kelp.begin_surface_frame()))
 }
 
 #[no_mangle]
@@ -46,24 +49,15 @@ pub unsafe extern "C" fn create_texture_with_data(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn draw_frame(frame_ptr: *mut SurfaceFrame) {
+pub unsafe extern "C" fn end_surface_frame(frame_ptr: *mut SurfaceFrame) {
     let kelp = KELP.as_mut().expect(KELP_NOT_FOUND);
     assert!(!frame_ptr.is_null());
-    kelp.draw_frame(Box::into_inner(Box::from_raw(frame_ptr)));
+    kelp.end_surface_frame(Box::into_inner(Box::from_raw(frame_ptr)));
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn free_kelp_texture(texture: *mut KelpTexture) {
-    _ = Box::from_raw(texture);
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn set_camera(data_ptr: *const u8, data_len: c_size_t) {
-    let kelp = KELP.as_mut().expect(KELP_NOT_FOUND);
-    assert!(!data_ptr.is_null());
-    assert!(data_len == 64);
-    let data = slice::from_raw_parts(data_ptr, data_len);
-    kelp.update_buffer(&kelp.vertex_group.camera_buffer, data)
+pub unsafe extern "C" fn free_texture(texture_ptr: *mut KelpTexture) {
+    _ = Box::from_raw(texture_ptr);
 }
 
 #[no_mangle]

@@ -189,7 +189,7 @@ impl Kelp {
 
         let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Instance Buffer"),
-            size: 16 << 20, // 16MB
+            size: 4 << 20, // 4MB
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -224,7 +224,7 @@ impl Kelp {
         }
     }
 
-    pub fn begin_frame(&self) -> SurfaceFrame {
+    pub fn begin_surface_frame(&self) -> SurfaceFrame {
         let surface = self.window_surface.get_current_texture().expect("Failed to acquire next swap chain texture");
         let view = surface.texture.create_view(&wgpu::TextureViewDescriptor::default());
         let encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
@@ -271,7 +271,11 @@ impl Kelp {
         KelpTexture { texture, bind_group }
     }
 
-    pub fn draw_frame(&self, mut frame: SurfaceFrame) {
+    pub fn end_surface_frame(&self, mut frame: SurfaceFrame) {
+        if frame.groups.len() == 0 || frame.instances.len() == 0 {
+            return;
+        }
+
         self.update_buffer(&self.vertex_group.instance_buffer, frame.instances.as_slice());
 
         {
@@ -279,7 +283,10 @@ impl Kelp {
                 color_attachments: &[wgpu::RenderPassColorAttachment {
                     view: &frame.view,
                     resolve_target: None,
-                    ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store: true },
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.3, g: 0.1, b: 0.2, a: 1.0 }),
+                        store: true,
+                    },
                 }],
                 ..RenderPassDescriptor::default()
             });

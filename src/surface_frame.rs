@@ -1,8 +1,6 @@
-use std::ops::Range;
-
-use bytemuck::{Pod, Zeroable};
-
 use crate::KelpTexture;
+use bytemuck::{Pod, Zeroable};
+use std::ops::Range;
 
 #[derive(Debug)]
 #[repr(C)]
