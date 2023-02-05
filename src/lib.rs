@@ -1,4 +1,4 @@
-#![feature(core_ffi_c, c_size_t)]
+#![feature(c_size_t)]
 #![feature(box_into_inner)]
 #![feature(new_uninit)]
 

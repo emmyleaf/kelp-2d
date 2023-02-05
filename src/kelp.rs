@@ -1,9 +1,9 @@
 use crate::{KelpTexture, SurfaceFrame};
 use naga::FastHashMap;
 use pollster::FutureExt;
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle, RawWindowHandle};
 use std::{borrow::Cow, num::NonZeroU64};
-use wgpu::{util::DeviceExt, RenderPassDescriptor};
+use wgpu::{util::DeviceExt, InstanceDescriptor, RenderPassDescriptor};
 
 #[derive(Debug)]
 pub struct VertexGroup {
@@ -27,14 +27,14 @@ pub struct Kelp {
 }
 
 impl Kelp {
-    pub fn new(window: &dyn HasRawWindowHandle, width: u32, height: u32) -> Kelp {
-        let instance = wgpu::Instance::new(wgpu::Backends::VULKAN);
-        let surface = unsafe { instance.create_surface(&window) };
+    pub fn new<W: HasRawWindowHandle + HasRawDisplayHandle>(window: W, width: u32, height: u32) -> Kelp {
+        let instance =
+            wgpu::Instance::new(InstanceDescriptor { backends: wgpu::Backends::PRIMARY, ..Default::default() });
+        let surface = unsafe { instance.create_surface(&window).unwrap() };
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions { compatible_surface: Some(&surface), ..Default::default() })
             .block_on()
             .expect("Failed to find an appropriate adapter");
-        let swapchain_format = surface.get_preferred_format(&adapter).unwrap();
 
         // Create the logical device and command queue
         let (device, queue) = adapter
@@ -52,17 +52,14 @@ impl Kelp {
 
         // Configure surface
         let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: swapchain_format,
-            width,
-            height,
             present_mode: wgpu::PresentMode::Fifo,
+            ..surface.get_default_config(&adapter, width, height).unwrap()
         };
 
         surface.configure(&device, &config);
 
         // Load the shaders from disk
-        let vertex_shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+        let vertex_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shaders/shader.vert")),
@@ -71,7 +68,7 @@ impl Kelp {
             },
         });
 
-        let fragment_shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+        let fragment_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shaders/shader.frag")),
@@ -158,10 +155,10 @@ impl Kelp {
             fragment: Some(wgpu::FragmentState {
                 module: &fragment_shader,
                 entry_point: "main",
-                targets: &[wgpu::ColorTargetState {
+                targets: &[Some(wgpu::ColorTargetState {
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    ..swapchain_format.into()
-                }],
+                    ..config.format.into()
+                })],
             }),
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleStrip,
@@ -249,6 +246,7 @@ impl Kelp {
                 dimension: wgpu::TextureDimension::D2,
                 format: wgpu::TextureFormat::Rgba8Unorm,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
             },
             data,
         );
@@ -280,14 +278,14 @@ impl Kelp {
 
         {
             let mut pass = frame.encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                color_attachments: &[wgpu::RenderPassColorAttachment {
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &frame.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.3, g: 0.1, b: 0.2, a: 1.0 }),
                         store: true,
                     },
-                }],
+                })],
                 ..RenderPassDescriptor::default()
             });
 
