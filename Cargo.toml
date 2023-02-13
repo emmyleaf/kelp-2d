@@ -16,9 +16,9 @@ bytemuck = "1.13.0"
 env_logger = "0.10.0"
 glam = { version = "0.22.0", features = ["bytemuck"] }
 naga = "0.11.0"
-pollster = "0.2.5"
+pollster = "0.3.0"
 raw-window-handle = "0.5.0"
-wgpu = { version = "0.15.0", features = ["glsl"] }
+wgpu = { version = "0.15.1", features = ["glsl"] }
 
 [dev-dependencies]
 png = "0.17.7"
