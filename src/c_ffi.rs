@@ -30,8 +30,7 @@ pub unsafe extern "C" fn begin_surface_frame<'a>(camera_ptr: *const u8) -> *cons
     let kelp = KELP.as_mut().expect(KELP_NOT_FOUND);
     assert!(!camera_ptr.is_null());
     let camera_data = slice::from_raw_parts(camera_ptr, 64_usize);
-    kelp.update_buffer(&kelp.vertex_group.camera_buffer, camera_data);
-    Box::into_raw(Box::new(kelp.begin_surface_frame()))
+    Box::into_raw(Box::new(kelp.begin_surface_frame(todo!())))
 }
 
 #[no_mangle]

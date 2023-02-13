@@ -12,11 +12,12 @@ struct Instance
     mat4 World;
 };
 
-layout(set = 0, binding = 0) uniform CameraBuffer
+layout(push_constant) uniform CameraBlock
 {
     mat4 ProjectionView;
 };
-layout(set = 0, binding = 1) readonly buffer InstanceBuffer
+
+layout(set = 0, binding = 0) readonly buffer InstanceBuffer
 {
     Instance Instances[];
 };

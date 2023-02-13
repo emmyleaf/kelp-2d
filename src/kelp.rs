@@ -3,14 +3,7 @@ use naga::FastHashMap;
 use pollster::FutureExt;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle, RawWindowHandle};
 use std::{borrow::Cow, num::NonZeroU64};
-use wgpu::{util::DeviceExt, InstanceDescriptor, RenderPassDescriptor};
-
-#[derive(Debug)]
-pub struct VertexGroup {
-    pub camera_buffer: wgpu::Buffer,
-    pub instance_buffer: wgpu::Buffer,
-    pub bind: wgpu::BindGroup,
-}
+use wgpu::{util::DeviceExt, InstanceDescriptor, PushConstantRange, RenderPassDescriptor};
 
 #[derive(Debug)]
 pub struct Kelp {
@@ -22,7 +15,8 @@ pub struct Kelp {
     pub config: wgpu::SurfaceConfiguration,
     pub point_sampler: wgpu::Sampler,
     pub vertex_buffer: wgpu::Buffer,
-    pub vertex_group: VertexGroup,
+    pub instance_buffer: wgpu::Buffer,
+    pub vertex_bind_group: wgpu::BindGroup,
     pub fragment_bind_layout: wgpu::BindGroupLayout,
 }
 
@@ -36,14 +30,17 @@ impl Kelp {
             .block_on()
             .expect("Failed to find an appropriate adapter");
 
+        // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
+        let mut limits = wgpu::Limits::downlevel_defaults().using_resolution(adapter.limits());
+        limits.max_push_constant_size = 128;
+
         // Create the logical device and command queue
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    features: wgpu::Features::empty(),
-                    // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
-                    limits: wgpu::Limits::downlevel_defaults().using_resolution(adapter.limits()),
+                    features: wgpu::Features::PUSH_CONSTANTS,
+                    limits,
                 },
                 None,
             )
@@ -78,19 +75,10 @@ impl Kelp {
         });
 
         // Create layouts for vertex shader bind group
-        let camera_buffer_layout = wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            visibility: wgpu::ShaderStages::VERTEX,
-            ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size: NonZeroU64::new(64),
-            },
-            count: None,
-        };
+        let camera_push_constant = PushConstantRange { stages: wgpu::ShaderStages::VERTEX, range: 0..64 };
 
         let instance_buffer_layout = wgpu::BindGroupLayoutEntry {
-            binding: 1,
+            binding: 0,
             visibility: wgpu::ShaderStages::VERTEX,
             ty: wgpu::BindingType::Buffer {
                 ty: wgpu::BufferBindingType::Storage { read_only: true },
@@ -102,7 +90,7 @@ impl Kelp {
 
         let vertex_bind_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Vertex Bind Group Layout"),
-            entries: &[camera_buffer_layout, instance_buffer_layout],
+            entries: &[instance_buffer_layout],
         });
 
         // Create layouts for fragment shader bind group
@@ -133,7 +121,7 @@ impl Kelp {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Main Render Pipeline Layout"),
             bind_group_layouts: &[&vertex_bind_layout, &fragment_bind_layout],
-            push_constant_ranges: &[],
+            push_constant_ranges: &[camera_push_constant],
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -177,13 +165,6 @@ impl Kelp {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let camera_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Camera Buffer"),
-            size: device.limits().min_uniform_buffer_offset_alignment.into(),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
         let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Instance Buffer"),
             size: 4 << 20, // 4MB
@@ -201,10 +182,7 @@ impl Kelp {
         let vertex_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Vertex Bind Group"),
             layout: &vertex_bind_layout,
-            entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: camera_buffer.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: instance_buffer.as_entire_binding() },
-            ],
+            entries: &[wgpu::BindGroupEntry { binding: 0, resource: instance_buffer.as_entire_binding() }],
         });
 
         Self {
@@ -216,17 +194,19 @@ impl Kelp {
             config,
             point_sampler,
             vertex_buffer,
-            vertex_group: VertexGroup { camera_buffer, instance_buffer, bind: vertex_bind_group },
+            instance_buffer,
+            vertex_bind_group,
             fragment_bind_layout,
         }
     }
 
-    pub fn begin_surface_frame(&self) -> SurfaceFrame {
+    pub fn begin_surface_frame(&self, camera: glam::Mat4) -> SurfaceFrame {
         let surface = self.window_surface.get_current_texture().expect("Failed to acquire next swap chain texture");
         let view = surface.texture.create_view(&wgpu::TextureViewDescriptor::default());
         let encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
         SurfaceFrame {
+            camera,
             surface,
             view,
             encoder,
@@ -270,11 +250,11 @@ impl Kelp {
     }
 
     pub fn end_surface_frame(&self, mut frame: SurfaceFrame) {
-        if frame.groups.len() == 0 || frame.instances.len() == 0 {
+        if frame.groups.is_empty() || frame.instances.is_empty() {
             return;
         }
 
-        self.update_buffer(&self.vertex_group.instance_buffer, frame.instances.as_slice());
+        self.update_buffer(&self.instance_buffer, frame.instances.as_slice());
 
         {
             let mut pass = frame.encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -290,8 +270,9 @@ impl Kelp {
             });
 
             pass.set_pipeline(&self.pipeline);
+            pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytemuck::bytes_of(frame.camera.as_ref()));
             pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            pass.set_bind_group(0, &self.vertex_group.bind, &[]);
+            pass.set_bind_group(0, &self.vertex_bind_group, &[]);
 
             for group in frame.groups {
                 pass.set_bind_group(1, group.bind_group, &[]);

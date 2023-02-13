@@ -47,6 +47,7 @@ pub struct InstanceGroup<'a> {
 
 #[derive(Debug)]
 pub struct SurfaceFrame<'a> {
+    pub camera: glam::Mat4,
     pub surface: wgpu::SurfaceTexture,
     pub view: wgpu::TextureView,
     pub encoder: wgpu::CommandEncoder,
