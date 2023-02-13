@@ -1,7 +1,7 @@
 - [x] Write this todo list - scan through Lutra code for necessary features for kelp
 - [ ] Camera proj/view matrix calculation
 - [x] Push constant for camera matrix (falls back to uniform on OpenGL via wgpu)
-- [ ] Split C ffi into a separate crate
+- [x] Split C ffi into a separate crate
 - [ ] Pass clear colour in to SurfaceFrame as `Option<Color>`
 - [ ] Drawing to different surfaces
 - [ ] Separate final surface to window stage

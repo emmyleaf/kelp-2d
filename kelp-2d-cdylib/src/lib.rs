@@ -1,5 +1,9 @@
-use crate::{InstanceData, Kelp, KelpTexture, SurfaceFrame, Window};
+#![feature(c_size_t)]
+#![feature(box_into_inner)]
+#![allow(clippy::missing_safety_doc)]
+
 use core::{ffi::c_size_t, slice};
+use kelp_2d::{InstanceData, Kelp, KelpTexture, SurfaceFrame, Window};
 
 static mut KELP: Option<Kelp> = None;
 

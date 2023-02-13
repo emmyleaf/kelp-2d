@@ -1,5 +1,8 @@
-[package]
-name = "kelp-2d"
+[workspace]
+members = ["kelp-2d", "kelp-2d-cdylib"]
+resolver = "2"
+
+[workspace.package]
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -8,19 +11,14 @@ repository = "https://github.com/emmyleaf/kelp-2d"
 keywords = ["2d", "gamedev", "graphics", "renderer", "wgpu"]
 categories = ["game-development", "graphics", "rendering", "rendering::engine"]
 
-[lib]
-crate-type = ["rlib", "cdylib"]
-
-[dependencies]
+[workspace.dependencies]
 bytemuck = "1.13.0"
 env_logger = "0.10.0"
 glam = { version = "0.22.0", features = ["bytemuck"] }
 naga = "0.11.0"
+png = "0.17.7"
 pollster = "0.3.0"
+rand = "0.8.5"
 raw-window-handle = "0.5.0"
 wgpu = { version = "0.15.1", features = ["glsl"] }
-
-[dev-dependencies]
-png = "0.17.7"
-rand = "0.8.5"
 winit = "0.28.1"

@@ -1,0 +1,16 @@
+[package]
+name = "kelp-2d-cdylib"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+env_logger = { workspace = true }
+kelp-2d = { path = "../kelp-2d" }

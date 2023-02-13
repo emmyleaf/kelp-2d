@@ -16,7 +16,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     let mut projection = glam::Mat4::orthographic_rh(0.0, size.width as f32, size.height as f32, 0.0, 0.0, 1.0);
 
     // Create petal texture & bind group
-    let decoder = png::Decoder::new(File::open(Path::new("./examples/instanced/petal.png")).unwrap());
+    let decoder = png::Decoder::new(File::open(Path::new("./kelp-2d/examples/instanced/petal.png")).unwrap());
     let mut reader = decoder.read_info().unwrap();
     let (tex_width, tex_height) = reader.info().size();
     let mut data = vec![0; reader.output_buffer_size()];

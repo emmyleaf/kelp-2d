@@ -1,0 +1,26 @@
+[package]
+name = "kelp-2d"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+bytemuck = { workspace = true }
+glam = { workspace = true }
+naga = { workspace = true }
+pollster = { workspace = true }
+raw-window-handle = { workspace = true }
+wgpu = { workspace = true }
+
+[dev-dependencies]
+env_logger = { workspace = true }
+png = { workspace = true }
+rand = { workspace = true }
+winit = { workspace = true }
