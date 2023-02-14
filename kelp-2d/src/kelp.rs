@@ -1,4 +1,4 @@
-use crate::{KelpTexture, SurfaceFrame};
+use crate::{Camera, KelpTexture, SurfaceFrame};
 use naga::FastHashMap;
 use pollster::FutureExt;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle, RawWindowHandle};
@@ -200,16 +200,17 @@ impl Kelp {
         }
     }
 
-    pub fn begin_surface_frame(&self, camera: glam::Mat4) -> SurfaceFrame {
+    pub fn begin_surface_frame(&self, camera: &Camera) -> SurfaceFrame {
         let surface = self.window_surface.get_current_texture().expect("Failed to acquire next swap chain texture");
         let view = surface.texture.create_view(&wgpu::TextureViewDescriptor::default());
         let encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
         SurfaceFrame {
-            camera,
+            camera: camera.into(),
             surface,
             view,
             encoder,
+            // TODO: at some point we could reuse these rather than allocating each time
             instances: Vec::new(),
             groups: Vec::new(),
         }

@@ -1,4 +1,4 @@
-use kelp_2d::{InstanceData, Kelp, SourceTransform, WorldTransform};
+use kelp_2d::{Camera, InstanceData, Kelp, Transform};
 use rand::Rng;
 use std::{fs::File, path::Path};
 use winit::{
@@ -13,7 +13,8 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     let mut kelp = Kelp::new(&window, size.width, size.height);
 
     // Set initial camera matrix
-    let mut projection = glam::Mat4::orthographic_rh(0.0, size.width as f32, size.height as f32, 0.0, 0.0, 1.0);
+    let mut camera =
+        Camera::new(size.width as f32 / 2.0, size.height as f32 / 2.0, size.width as f32, size.height as f32, 0.0, 1.0);
 
     // Create petal texture & bind group
     let decoder = png::Decoder::new(File::open(Path::new("./kelp-2d/examples/instanced/petal.png")).unwrap());
@@ -28,14 +29,14 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     let mut rng = rand::thread_rng();
     for _ in 0..128 {
         let color = [1.0, 1.0, 1.0, 1.0];
-        let source = SourceTransform::default();
-        let world = WorldTransform {
+        let source = Transform::default();
+        let world = Transform {
             render_x: rng.gen_range(0.0..(size.width as f32)),
             render_y: rng.gen_range(0.0..(size.height as f32)),
             rotation: rng.gen_range(0.0..(2.0 * std::f32::consts::PI)),
             scale_x: tex_width as f32,
             scale_y: tex_height as f32,
-            ..WorldTransform::default()
+            ..Transform::default()
         };
 
         instance_data.push(InstanceData { color, source, world });
@@ -44,14 +45,14 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     for _ in 0..(1 << 14) {
         let color =
             [rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0)];
-        let source = SourceTransform::default();
-        let world = WorldTransform {
+        let source = Transform::default();
+        let world = Transform {
             render_x: rng.gen_range(0.0..(size.width as f32)),
             render_y: rng.gen_range(0.0..(size.height as f32)),
             rotation: rng.gen_range(0.0..(2.0 * std::f32::consts::PI)),
             scale_x: tex_width as f32,
             scale_y: tex_height as f32,
-            ..WorldTransform::default()
+            ..Transform::default()
         };
 
         instance_data_2.push(InstanceData { color, source, world });
@@ -69,8 +70,8 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                 window.request_redraw();
             }
             Event::MainEventsCleared => {
-                projection.x_axis.x += 0.000001;
-                let mut frame = kelp.begin_surface_frame(projection);
+                camera.scale += 0.0001;
+                let mut frame = kelp.begin_surface_frame(&camera);
                 frame.add_instances(&petal_texture, instance_data.as_slice());
                 frame.add_instances(&petal_texture, instance_data_2.as_slice());
                 kelp.end_surface_frame(frame);

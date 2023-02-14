@@ -1,19 +1,9 @@
 use crate::KelpTexture;
-use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
 
 #[derive(Debug)]
 #[repr(C)]
-pub struct SourceTransform {
-    pub source_x: f32,
-    pub source_y: f32,
-    pub scale_x: f32,
-    pub scale_y: f32,
-}
-
-#[derive(Debug)]
-#[repr(C)]
-pub struct WorldTransform {
+pub struct Transform {
     pub render_x: f32,
     pub render_y: f32,
     pub scale_x: f32,
@@ -25,10 +15,21 @@ pub struct WorldTransform {
 
 #[derive(Debug)]
 #[repr(C)]
+pub struct Camera {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub angle: f32,
+    pub scale: f32,
+}
+
+#[derive(Debug)]
+#[repr(C)]
 pub struct InstanceData {
     pub color: [f32; 4],
-    pub source: SourceTransform,
-    pub world: WorldTransform,
+    pub source: Transform,
+    pub world: Transform,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -55,13 +56,7 @@ pub struct SurfaceFrame<'a> {
     pub groups: Vec<InstanceGroup<'a>>,
 }
 
-impl Default for SourceTransform {
-    fn default() -> Self {
-        Self { source_x: 0.0, source_y: 0.0, scale_x: 1.0, scale_y: 1.0 }
-    }
-}
-
-impl Default for WorldTransform {
+impl Default for Transform {
     fn default() -> Self {
         Self {
             render_x: 0.0,
@@ -75,19 +70,14 @@ impl Default for WorldTransform {
     }
 }
 
-impl From<&SourceTransform> for glam::Mat4 {
-    fn from(transform: &SourceTransform) -> Self {
-        Self::from_cols(
-            glam::vec4(transform.scale_x, 0.0, 0.0, 0.0),
-            glam::vec4(0.0, transform.scale_y, 0.0, 0.0),
-            glam::vec4(0.0, 0.0, 1.0, 0.0),
-            glam::vec4(transform.source_x, transform.source_y, 0.0, 1.0),
-        )
+impl Camera {
+    pub fn new(x: f32, y: f32, width: f32, height: f32, angle: f32, scale: f32) -> Self {
+        Self { x, y, width, height, angle, scale }
     }
 }
 
-impl From<&WorldTransform> for glam::Mat4 {
-    fn from(transform: &WorldTransform) -> Self {
+impl From<&Transform> for glam::Mat4 {
+    fn from(transform: &Transform) -> Self {
         let (sin, cos) = transform.rotation.sin_cos();
         let a = cos * transform.scale_x;
         let b = -sin * transform.scale_y;
@@ -104,18 +94,36 @@ impl From<&WorldTransform> for glam::Mat4 {
     }
 }
 
+impl From<&Camera> for glam::Mat4 {
+    fn from(camera: &Camera) -> Self {
+        let (sin, cos) = camera.angle.sin_cos();
+        let cs = cos * camera.scale;
+        let ss = sin * camera.scale;
+        let x = 0.5 * camera.width - (cs * camera.x) + (ss * camera.y);
+        let y = 0.5 * camera.height - (ss * camera.x) - (cs * camera.y);
+        let view = Self::from_cols(
+            glam::vec4(cs, ss, 0.0, 0.0),
+            glam::vec4(-ss, cs, 0.0, 0.0),
+            glam::vec4(0.0, 0.0, 1.0, 0.0),
+            glam::vec4(x, y, 0.0, 1.0),
+        );
+        let projection = Self::orthographic_rh(0.0, camera.width, camera.height, 0.0, 0.0, 1.0);
+        projection * view
+    }
+}
+
 impl From<&InstanceData> for InstanceGPU {
     fn from(data: &InstanceData) -> Self {
         Self {
             color: data.color,
-            source: glam::Mat4::from(&data.source),
-            world: glam::Mat4::from(&data.world),
+            source: (&data.source).into(),
+            world: (&data.world).into(),
         }
     }
 }
 
-unsafe impl Zeroable for InstanceGPU {}
-unsafe impl Pod for InstanceGPU {}
+unsafe impl bytemuck::Zeroable for InstanceGPU {}
+unsafe impl bytemuck::Pod for InstanceGPU {}
 
 impl<'a> SurfaceFrame<'a> {
     pub fn add_instances(&mut self, texture: &'a KelpTexture, instance_data: &[InstanceData]) {
