@@ -1,9 +1,9 @@
 mod kelp;
-mod kelp_texture;
-mod surface_frame;
+mod render_pass;
+mod types;
 mod window;
 
 pub use kelp::*;
-pub use kelp_texture::*;
-pub use surface_frame::*;
+pub use render_pass::*;
+pub use types::*;
 pub use window::*;

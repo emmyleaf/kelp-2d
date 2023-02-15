@@ -3,7 +3,7 @@
 #![allow(clippy::missing_safety_doc)]
 
 use core::{ffi::c_size_t, slice};
-use kelp_2d::{InstanceData, Kelp, KelpTexture, SurfaceFrame, Window};
+use kelp_2d::{InstanceData, Kelp, KelpRenderPass, KelpTexture, Window};
 
 static mut KELP: Option<Kelp> = None;
 
@@ -17,7 +17,7 @@ pub unsafe extern "C" fn initialise(window: Window) {
 
 #[no_mangle]
 pub unsafe extern "C" fn add_instances(
-    frame_ptr: *mut SurfaceFrame,
+    frame_ptr: *mut KelpRenderPass,
     texture_ptr: *mut KelpTexture,
     instance_ptr: *const InstanceData,
     count: u32,
@@ -30,11 +30,11 @@ pub unsafe extern "C" fn add_instances(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn begin_surface_frame<'a>(camera_ptr: *const u8) -> *const SurfaceFrame<'a> {
+pub unsafe extern "C" fn begin_render_pass<'a>(camera_ptr: *const u8) -> *const KelpRenderPass<'a> {
     let kelp = KELP.as_mut().expect(KELP_NOT_FOUND);
     assert!(!camera_ptr.is_null());
     let camera_data = slice::from_raw_parts(camera_ptr, 64_usize);
-    Box::into_raw(Box::new(kelp.begin_surface_frame(todo!())))
+    Box::into_raw(Box::new(kelp.begin_render_pass(todo!(), todo!())))
 }
 
 #[no_mangle]
@@ -52,10 +52,10 @@ pub unsafe extern "C" fn create_texture_with_data(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn end_surface_frame(frame_ptr: *mut SurfaceFrame) {
+pub unsafe extern "C" fn end_render_pass(frame_ptr: *mut KelpRenderPass) {
     let kelp = KELP.as_mut().expect(KELP_NOT_FOUND);
     assert!(!frame_ptr.is_null());
-    kelp.end_surface_frame(Box::into_inner(Box::from_raw(frame_ptr)));
+    kelp.end_render_pass(Box::into_inner(Box::from_raw(frame_ptr)));
 }
 
 #[no_mangle]

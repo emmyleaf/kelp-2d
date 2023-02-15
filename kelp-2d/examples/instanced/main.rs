@@ -15,6 +15,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     // Set initial camera matrix
     let mut camera =
         Camera::new(size.width as f32 / 2.0, size.height as f32 / 2.0, size.width as f32, size.height as f32, 0.0, 1.0);
+    let clear = Some(glam::vec4(0.1, 0.0, 0.1, 1.0));
 
     // Create petal texture & bind group
     let decoder = png::Decoder::new(File::open(Path::new("./kelp-2d/examples/instanced/petal.png")).unwrap());
@@ -71,10 +72,10 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
             }
             Event::MainEventsCleared => {
                 camera.scale += 0.0001;
-                let mut frame = kelp.begin_surface_frame(&camera);
+                let mut frame = kelp.begin_render_pass(&camera, clear);
                 frame.add_instances(&petal_texture, instance_data.as_slice());
                 frame.add_instances(&petal_texture, instance_data_2.as_slice());
-                kelp.end_surface_frame(frame);
+                kelp.end_render_pass(frame);
             }
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => *control_flow = ControlFlow::Exit,
             _ => {}

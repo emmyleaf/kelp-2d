@@ -1,4 +1,4 @@
-use crate::{Camera, KelpTexture, SurfaceFrame};
+use crate::{Camera, KelpRenderPass, KelpTexture};
 use naga::FastHashMap;
 use pollster::FutureExt;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle, RawWindowHandle};
@@ -200,13 +200,14 @@ impl Kelp {
         }
     }
 
-    pub fn begin_surface_frame(&self, camera: &Camera) -> SurfaceFrame {
+    pub fn begin_render_pass(&self, camera: &Camera, clear: Option<glam::Vec4>) -> KelpRenderPass {
         let surface = self.window_surface.get_current_texture().expect("Failed to acquire next swap chain texture");
         let view = surface.texture.create_view(&wgpu::TextureViewDescriptor::default());
         let encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-        SurfaceFrame {
+        KelpRenderPass {
             camera: camera.into(),
+            clear,
             surface,
             view,
             encoder,
@@ -250,39 +251,39 @@ impl Kelp {
         KelpTexture { texture, bind_group }
     }
 
-    pub fn end_surface_frame(&self, mut frame: SurfaceFrame) {
-        if frame.groups.is_empty() || frame.instances.is_empty() {
+    pub fn end_render_pass(&self, mut render: KelpRenderPass) {
+        if render.groups.is_empty() || render.instances.is_empty() {
             return;
         }
 
-        self.update_buffer(&self.instance_buffer, frame.instances.as_slice());
+        self.update_buffer(&self.instance_buffer, render.instances.as_slice());
 
         {
-            let mut pass = frame.encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            let load = render.clear.map_or(wgpu::LoadOp::Load, |v| {
+                wgpu::LoadOp::Clear(wgpu::Color { r: v.x as f64, g: v.y as f64, b: v.z as f64, a: v.w as f64 })
+            });
+            let mut wgpu_pass = render.encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &frame.view,
+                    view: &render.view,
                     resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.3, g: 0.1, b: 0.2, a: 1.0 }),
-                        store: true,
-                    },
+                    ops: wgpu::Operations { load, store: true },
                 })],
                 ..RenderPassDescriptor::default()
             });
 
-            pass.set_pipeline(&self.pipeline);
-            pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytemuck::bytes_of(frame.camera.as_ref()));
-            pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            pass.set_bind_group(0, &self.vertex_bind_group, &[]);
+            wgpu_pass.set_pipeline(&self.pipeline);
+            wgpu_pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytemuck::bytes_of(render.camera.as_ref()));
+            wgpu_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            wgpu_pass.set_bind_group(0, &self.vertex_bind_group, &[]);
 
-            for group in frame.groups {
-                pass.set_bind_group(1, group.bind_group, &[]);
-                pass.draw(0..4, group.range);
+            for group in render.groups {
+                wgpu_pass.set_bind_group(1, group.bind_group, &[]);
+                wgpu_pass.draw(0..4, group.range);
             }
         }
 
-        self.queue.submit(Some(frame.encoder.finish()));
-        frame.surface.present();
+        self.queue.submit(Some(render.encoder.finish()));
+        render.surface.present();
     }
 
     pub fn set_surface_size(&mut self, width: u32, height: u32) {

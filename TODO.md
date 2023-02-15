@@ -2,7 +2,7 @@
 - [x] Camera proj/view matrix calculation
 - [x] Push constant for camera matrix (falls back to uniform on OpenGL via wgpu)
 - [x] Split C ffi into a separate crate
-- [ ] Pass clear colour in to SurfaceFrame as `Option<Color>`
+- [x] Pass clear colour in to `begin_render_pass` as an `Option<>`
 - [ ] Drawing to different surfaces
 - [ ] Separate final surface to window stage
 - [ ] Custom pipelines created on demand
