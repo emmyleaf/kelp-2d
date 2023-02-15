@@ -1,12 +1,14 @@
 use crate::{InstanceData, InstanceGPU, InstanceGroup, KelpTexture};
+use glam::{Mat4, Vec4};
+use wgpu::{CommandEncoder, SurfaceTexture, TextureView};
 
 #[derive(Debug)]
 pub struct KelpRenderPass<'a> {
-    pub camera: glam::Mat4,
-    pub clear: Option<glam::Vec4>,
-    pub surface: wgpu::SurfaceTexture,
-    pub view: wgpu::TextureView,
-    pub encoder: wgpu::CommandEncoder,
+    pub camera: Mat4,
+    pub clear: Option<Vec4>,
+    pub surface: SurfaceTexture,
+    pub view: TextureView,
+    pub encoder: CommandEncoder,
     pub instances: Vec<InstanceGPU>,
     pub groups: Vec<InstanceGroup<'a>>,
 }
