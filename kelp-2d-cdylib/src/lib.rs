@@ -17,16 +17,17 @@ pub unsafe extern "C" fn initialise(window: Window) {
 
 #[no_mangle]
 pub unsafe extern "C" fn add_instances(
-    frame_ptr: *mut KelpRenderPass,
+    pass_ptr: *mut KelpRenderPass,
     texture_ptr: *mut KelpTexture,
+    smooth: bool,
     instance_ptr: *const InstanceData,
     count: u32,
 ) {
-    let frame = frame_ptr.as_mut().expect("frame_ptr not set to a valid SurfaceFrame");
+    let pass = pass_ptr.as_mut().expect("frame_ptr not set to a valid SurfaceFrame");
     let texture = texture_ptr.as_ref().expect("texture_ptr not set to a valid KelpTexture");
     assert!(!instance_ptr.is_null());
     let instances = slice::from_raw_parts(instance_ptr, count as usize);
-    frame.add_instances(texture, instances);
+    pass.add_instances(texture, smooth, instances);
 }
 
 #[no_mangle]
@@ -44,7 +45,7 @@ pub unsafe extern "C" fn create_texture_with_data(
     data_ptr: *const u8,
     data_len: c_size_t,
 ) -> *mut KelpTexture {
-    let kelp = KELP.as_mut().expect(KELP_NOT_FOUND);
+    let kelp = KELP.as_ref().expect(KELP_NOT_FOUND);
     assert!(!data_ptr.is_null());
     let data = slice::from_raw_parts(data_ptr, data_len);
     let kelp_texture = kelp.create_texture_with_data(width, height, data);
@@ -53,9 +54,8 @@ pub unsafe extern "C" fn create_texture_with_data(
 
 #[no_mangle]
 pub unsafe extern "C" fn end_render_pass(frame_ptr: *mut KelpRenderPass) {
-    let kelp = KELP.as_mut().expect(KELP_NOT_FOUND);
     assert!(!frame_ptr.is_null());
-    kelp.end_render_pass(Box::into_inner(Box::from_raw(frame_ptr)));
+    Box::into_inner(Box::from_raw(frame_ptr)).finish();
 }
 
 #[no_mangle]

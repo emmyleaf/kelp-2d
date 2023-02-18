@@ -5,6 +5,7 @@
 - [x] Pass clear colour in to `begin_render_pass` as an `Option<>`
 - [ ] Drawing to different surfaces
 - [ ] Separate final surface to window stage
+- [x] Allow an instance to be drawn 'Very smoot...' (linear sampled)
 - [ ] Custom pipelines created on demand
     - [ ] Blend modes
     - [ ] Custom fragment shaders

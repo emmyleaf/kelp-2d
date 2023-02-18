@@ -1,5 +1,6 @@
 mod kelp;
 mod render_pass;
+mod texture_bind_group_cache;
 mod types;
 mod window;
 

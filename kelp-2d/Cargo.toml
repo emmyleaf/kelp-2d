@@ -17,6 +17,7 @@ glam = { workspace = true }
 naga = { workspace = true }
 pollster = { workspace = true }
 raw-window-handle = { workspace = true }
+rustc-hash = { workspace = true }
 wgpu = { workspace = true }
 
 [dev-dependencies]

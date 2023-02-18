@@ -1,12 +1,12 @@
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec4};
-use std::ops::Range;
+use std::{ops::Range, rc::Rc};
 use wgpu::{BindGroup, Texture};
 
 #[derive(Debug)]
+#[repr(C)]
 pub struct KelpTexture {
-    pub texture: Texture,
-    pub bind_group: BindGroup,
+    pub(crate) wgpu_texture: Texture,
 }
 
 #[derive(Debug)]
@@ -49,8 +49,8 @@ pub struct InstanceGPU {
 }
 
 #[derive(Debug)]
-pub struct InstanceGroup<'a> {
-    pub bind_group: &'a BindGroup,
+pub struct InstanceGroup {
+    pub bind_group: Rc<BindGroup>,
     pub range: Range<u32>,
 }
 
