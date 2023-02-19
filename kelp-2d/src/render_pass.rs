@@ -31,7 +31,7 @@ impl<'a> KelpRenderPass<'a> {
             return;
         }
 
-        let kelp = &mut self.kelp;
+        let kelp = self.kelp;
         kelp.update_buffer(&kelp.instance_buffer, self.instances.as_slice());
 
         {

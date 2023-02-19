@@ -71,7 +71,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                 window.request_redraw();
             }
             Event::MainEventsCleared => {
-                camera.scale += 0.0001;
+                camera.scale += 0.001;
                 let mut pass = kelp.begin_render_pass(&camera, clear);
                 pass.add_instances(&petal_texture, false, instance_data.as_slice());
                 pass.add_instances(&petal_texture, true, instance_data_2.as_slice());

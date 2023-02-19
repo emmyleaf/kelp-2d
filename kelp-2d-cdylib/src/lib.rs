@@ -2,8 +2,11 @@
 #![feature(box_into_inner)]
 #![allow(clippy::missing_safety_doc)]
 
+mod window;
+
 use core::{ffi::c_size_t, slice};
-use kelp_2d::{InstanceData, Kelp, KelpRenderPass, KelpTexture, Window};
+use kelp_2d::{InstanceData, Kelp, KelpRenderPass, KelpTexture};
+use window::Window;
 
 static mut KELP: Option<Kelp> = None;
 

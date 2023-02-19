@@ -8,8 +8,8 @@ use wgpu::{
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 struct TextureBindingId {
-    pub texture_id: Id,
-    pub smooth: bool,
+    texture_id: Id,
+    smooth: bool,
 }
 
 #[derive(Debug)]

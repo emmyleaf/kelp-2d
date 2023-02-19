@@ -14,3 +14,4 @@ crate-type = ["cdylib"]
 [dependencies]
 env_logger = { workspace = true }
 kelp-2d = { path = "../kelp-2d" }
+raw-window-handle = { workspace = true }
