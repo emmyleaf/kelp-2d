@@ -3,6 +3,13 @@ use glam::{Mat4, Vec4};
 use std::{ops::Range, rc::Rc};
 use wgpu::{BindGroup, Texture};
 
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[repr(u8)]
+pub enum BlendMode {
+    ALPHA = 0,
+    ADDITIVE = 1,
+}
+
 #[derive(Debug)]
 #[repr(C)]
 pub struct KelpTexture {

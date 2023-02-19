@@ -1,4 +1,5 @@
 mod kelp;
+mod pipeline_cache;
 mod render_pass;
 mod texture_bind_group_cache;
 mod types;

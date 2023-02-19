@@ -60,9 +60,11 @@ impl Kelp {
             ..window_surface.get_default_config(&adapter, width, height).unwrap()
         };
 
+        dbg!(&config);
+
         window_surface.configure(&device, &config);
 
-        // Load the shaders from disk
+        // Load the default shaders from disk
         let vertex_shader = device.create_shader_module(ShaderModuleDescriptor {
             label: None,
             source: ShaderSource::Glsl {
@@ -100,7 +102,7 @@ impl Kelp {
             entries: &[instance_buffer_layout],
         });
 
-        // Create layouts for texture shader bind group
+        // Create layouts for texture bind group
         let texture_bind_layout = BindGroupLayoutEntry {
             binding: 0,
             visibility: ShaderStages::FRAGMENT,
@@ -124,7 +126,7 @@ impl Kelp {
             entries: &[texture_bind_layout, sampler_bind_layout],
         });
 
-        // Create main render pipeline
+        // Create pipeline layout
         let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: Some("Main Render Pipeline Layout"),
             bind_group_layouts: &[&vertex_bind_layout, &texture_bind_layout],

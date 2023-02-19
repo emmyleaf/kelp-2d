@@ -3,11 +3,13 @@
 - [x] Push constant for camera matrix (falls back to uniform on OpenGL via wgpu)
 - [x] Split C ffi into a separate crate
 - [x] Pass clear colour in to `begin_render_pass` as an `Option<>`
-- [ ] Drawing to different surfaces
+- [ ] Drawing to different `RenderTarget`s
 - [ ] Separate final surface to window stage
 - [x] Allow an instance to be drawn 'Very smoot...' (linear sampled)
-- [ ] Custom pipelines created on demand
-    - [ ] Blend modes
+- [@] Custom pipelines created on demand
+    - [@] Blend modes
     - [ ] Custom fragment shaders
-        - [ ] Shader parameters - do we keep the dynamic API or design something stricter?
-        - [ ] Write guide to writing custom shaders (maybe this belongs in Lutra docs...)
+        - Shader parameters - do we keep the dynamic API or design something stricter?
+        - What if we open up the remaining 64 bytes of push constants? that will cover most shaders used in tmfbma/dddb
+        - Will still need a binding slot for texture/buffer parameters etc
+        - Write guide to writing custom shaders (maybe this belongs in Lutra docs...)
