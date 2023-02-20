@@ -7,6 +7,24 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Debug example 'blend_modes'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=blend_modes",
+                    "--package=kelp-2d"
+                ],
+                "filter": {
+                    "name": "blend_modes",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug example 'instanced'",
             "cargo": {
                 "args": [

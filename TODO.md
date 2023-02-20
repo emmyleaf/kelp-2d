@@ -7,7 +7,7 @@
 - [ ] Separate final surface to window stage
 - [x] Allow an instance to be drawn 'Very smoot...' (linear sampled)
 - [@] Custom pipelines created on demand
-    - [@] Blend modes
+    - [x] Blend modes
     - [ ] Custom fragment shaders
         - Shader parameters - do we keep the dynamic API or design something stricter?
         - What if we open up the remaining 64 bytes of push constants? that will cover most shaders used in tmfbma/dddb

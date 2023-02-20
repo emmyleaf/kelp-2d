@@ -1,6 +1,6 @@
 use crate::{
-    pipeline_cache::PipelineId, texture_bind_group_cache::TextureBindGroupId, InstanceData, InstanceGPU, KelpResources,
-    KelpTexture,
+    pipeline_cache::PipelineId, texture_bind_group_cache::TextureBindGroupId, BlendMode, InstanceData, InstanceGPU,
+    KelpResources, KelpTexture,
 };
 use glam::{Mat4, Vec4};
 use std::{ops::Range, rc::Rc};
@@ -22,7 +22,7 @@ pub struct KelpRenderPass {
     pub clear: Option<Vec4>,
     pub surface: SurfaceTexture,
     pub view: TextureView,
-    pub encoder: CommandEncoder,
+    pub encoder: CommandEncoder, // TODO: move this out of here...
     pub(crate) resources: Rc<KelpResources>,
     instances: Vec<InstanceGPU>,
     groups: Vec<InstanceGroup>,
@@ -49,19 +49,22 @@ impl KelpRenderPass {
         }
     }
 
-    pub fn add_instances(&mut self, texture: &KelpTexture, smooth: bool, instance_data: &[InstanceData]) {
+    pub fn add_instances(
+        &mut self,
+        texture: &KelpTexture,
+        smooth: bool,
+        blend_mode: BlendMode,
+        instance_data: &[InstanceData],
+    ) {
         let prev_count = self.instances.len() as u32;
         let range = (prev_count)..(prev_count + instance_data.len() as u32);
-        let bind_group_id = self.resources.texture_bind_group_cache.borrow_mut().get_valid_bind_group_id(
-            &self.resources.device,
-            texture,
-            smooth,
-        );
-        let pipeline_id = self.resources.pipeline_cache.borrow_mut().get_valid_pipeline_id(
-            &self.resources.device,
-            None,
-            crate::BlendMode::ALPHA,
-        );
+
+        let mut texture_bind_group_cache = self.resources.texture_bind_group_cache.borrow_mut();
+        let bind_group_id = texture_bind_group_cache.get_valid_bind_group_id(&self.resources.device, texture, smooth);
+
+        let mut pipeline_cache = self.resources.pipeline_cache.borrow_mut();
+        let pipeline_id = pipeline_cache.get_valid_pipeline_id(&self.resources.device, None, blend_mode);
+
         self.instances.extend(instance_data.iter().map(InstanceGPU::from));
         self.groups.push(InstanceGroup { range, bind_group_id, pipeline_id });
     }
