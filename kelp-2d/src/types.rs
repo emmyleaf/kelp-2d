@@ -1,7 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec4};
-use std::{ops::Range, rc::Rc};
-use wgpu::{BindGroup, Texture};
+use wgpu::Texture;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 #[repr(u8)]
@@ -53,12 +52,6 @@ pub struct InstanceGPU {
     pub color: [f32; 4],
     pub source: Mat4,
     pub world: Mat4,
-}
-
-#[derive(Debug)]
-pub struct InstanceGroup {
-    pub bind_group: Rc<BindGroup>,
-    pub range: Range<u32>,
 }
 
 impl Default for Transform {

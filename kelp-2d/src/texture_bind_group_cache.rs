@@ -7,21 +7,21 @@ use wgpu::{
 };
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-struct TextureBindingId {
+pub(crate) struct TextureBindGroupId {
     texture_id: Id,
     smooth: bool,
 }
 
 #[derive(Debug)]
 pub(crate) struct TextureBindGroupCache {
-    cache: FxHashMap<TextureBindingId, Rc<BindGroup>>,
-    texture_bind_layout: BindGroupLayout,
+    cache: FxHashMap<TextureBindGroupId, BindGroup>,
+    texture_bind_layout: Rc<BindGroupLayout>,
     linear_sampler: Sampler,
     point_sampler: Sampler,
 }
 
 impl TextureBindGroupCache {
-    pub fn new(texture_bind_layout: BindGroupLayout, linear_sampler: Sampler, point_sampler: Sampler) -> Self {
+    pub fn new(texture_bind_layout: Rc<BindGroupLayout>, linear_sampler: Sampler, point_sampler: Sampler) -> Self {
         Self {
             cache: Default::default(),
             texture_bind_layout,
@@ -30,14 +30,22 @@ impl TextureBindGroupCache {
         }
     }
 
-    pub fn get_texture_bind_group(&mut self, device: &Device, texture: &KelpTexture, smooth: bool) -> Rc<BindGroup> {
+    pub fn get_bind_group(&self, id: &TextureBindGroupId) -> &BindGroup {
+        self.cache.get(id).expect("Invalid bind group id.")
+    }
+
+    pub fn get_valid_bind_group_id(
+        &mut self,
+        device: &Device,
+        texture: &KelpTexture,
+        smooth: bool,
+    ) -> TextureBindGroupId {
         let id = Self::to_binding_id(texture, smooth);
-        let contains = self.cache.contains_key(&id);
-        if !contains {
+        if !self.cache.contains_key(&id) {
             let bind_group = self.create_texture_bind_group(device, texture, smooth);
-            self.cache.insert(id, Rc::new(bind_group));
+            self.cache.insert(id, bind_group);
         }
-        self.cache.get(&id).expect("Failed to get or create texture bind group.").clone()
+        id
     }
 
     pub fn remove_texture_bind_group(&mut self, texture: &KelpTexture, smooth: bool) {
@@ -53,7 +61,7 @@ impl TextureBindGroupCache {
         };
         device.create_bind_group(&BindGroupDescriptor {
             label: None,
-            layout: &self.texture_bind_layout,
+            layout: self.texture_bind_layout.as_ref(),
             entries: &[
                 BindGroupEntry {
                     binding: 0,
@@ -67,7 +75,7 @@ impl TextureBindGroupCache {
     }
 
     #[inline]
-    fn to_binding_id(texture: &KelpTexture, smooth: bool) -> TextureBindingId {
-        TextureBindingId { texture_id: texture.wgpu_texture.global_id(), smooth }
+    fn to_binding_id(texture: &KelpTexture, smooth: bool) -> TextureBindGroupId {
+        TextureBindGroupId { texture_id: texture.wgpu_texture.global_id(), smooth }
     }
 }

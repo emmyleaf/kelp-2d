@@ -1,35 +1,37 @@
-use crate::{texture_bind_group_cache::TextureBindGroupCache, Camera, KelpRenderPass, KelpTexture};
+use crate::{Camera, KelpRenderPass, KelpTexture, PipelineCache, TextureBindGroupCache};
 use bytemuck::NoUninit;
 use glam::Vec4;
 use naga::{FastHashMap, ShaderStage};
 use pollster::FutureExt;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle, RawWindowHandle};
-use std::{borrow::Cow, num::NonZeroU64};
+use std::{borrow::Cow, cell::RefCell, num::NonZeroU64, rc::Rc};
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
-    BindingType, BlendState, Buffer, BufferBindingType, BufferDescriptor, BufferUsages, ColorTargetState,
-    CommandEncoderDescriptor, Device, DeviceDescriptor, Extent3d, Features, FilterMode, FragmentState, Instance,
-    InstanceDescriptor, Limits, MultisampleState, PipelineLayoutDescriptor, PresentMode, PrimitiveState,
-    PrimitiveTopology, PushConstantRange, Queue, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions,
-    SamplerBindingType, SamplerDescriptor, ShaderModuleDescriptor, ShaderSource, ShaderStages, Surface,
-    SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-    TextureViewDescriptor, TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat, VertexState,
-    VertexStepMode,
+    BindingType, Buffer, BufferBindingType, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Device,
+    DeviceDescriptor, Extent3d, Features, FilterMode, Instance, InstanceDescriptor, Limits, PresentMode, Queue,
+    RequestAdapterOptions, SamplerBindingType, SamplerDescriptor, ShaderModuleDescriptor, ShaderSource, ShaderStages,
+    Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
+    TextureUsages, TextureViewDescriptor, TextureViewDimension,
 };
 
 #[derive(Debug)]
 pub struct Kelp {
     pub window_handle: RawWindowHandle,
     pub window_surface: Surface,
-    pub device: Device,
-    pub queue: Queue,
-    pub pipeline: RenderPipeline,
-    pub config: SurfaceConfiguration,
-    pub vertex_buffer: Buffer,
-    pub instance_buffer: Buffer,
-    pub vertex_bind_group: BindGroup,
-    pub(crate) texture_binding_cache: TextureBindGroupCache,
+    pub window_surface_config: SurfaceConfiguration,
+    pub(crate) resources: Rc<KelpResources>,
+}
+
+#[derive(Debug)]
+pub(crate) struct KelpResources {
+    pub(crate) device: Device,
+    pub(crate) queue: Queue,
+    pub(crate) vertex_buffer: Buffer,
+    pub(crate) instance_buffer: Buffer,
+    pub(crate) vertex_bind_group: BindGroup,
+    pub(crate) texture_bind_group_cache: RefCell<TextureBindGroupCache>,
+    pub(crate) pipeline_cache: RefCell<PipelineCache>,
 }
 
 impl Kelp {
@@ -55,17 +57,17 @@ impl Kelp {
             .expect("Failed to create device");
 
         // Configure surface
-        let config = SurfaceConfiguration {
+        let window_surface_config = SurfaceConfiguration {
             present_mode: PresentMode::Fifo,
             ..window_surface.get_default_config(&adapter, width, height).unwrap()
         };
 
-        dbg!(&config);
+        dbg!(&window_surface_config);
 
-        window_surface.configure(&device, &config);
+        window_surface.configure(&device, &window_surface_config);
 
         // Load the default shaders from disk
-        let vertex_shader = device.create_shader_module(ShaderModuleDescriptor {
+        let default_vertex_shader = device.create_shader_module(ShaderModuleDescriptor {
             label: None,
             source: ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shaders/shader.vert")),
@@ -74,7 +76,7 @@ impl Kelp {
             },
         });
 
-        let fragment_shader = device.create_shader_module(ShaderModuleDescriptor {
+        let default_fragment_shader = device.create_shader_module(ShaderModuleDescriptor {
             label: None,
             source: ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shaders/shader.frag")),
@@ -84,8 +86,6 @@ impl Kelp {
         });
 
         // Create layouts for vertex shader bind group
-        let camera_push_constant = PushConstantRange { stages: ShaderStages::VERTEX, range: 0..64 };
-
         let instance_buffer_layout = BindGroupLayoutEntry {
             binding: 0,
             visibility: ShaderStages::VERTEX,
@@ -102,8 +102,8 @@ impl Kelp {
             entries: &[instance_buffer_layout],
         });
 
-        // Create layouts for texture bind group
-        let texture_bind_layout = BindGroupLayoutEntry {
+        // Create layouts for fragment shader texture bind group
+        let texture_bind_entry = BindGroupLayoutEntry {
             binding: 0,
             visibility: ShaderStages::FRAGMENT,
             ty: BindingType::Texture {
@@ -114,57 +114,17 @@ impl Kelp {
             count: None,
         };
 
-        let sampler_bind_layout = BindGroupLayoutEntry {
+        let sampler_bind_entry = BindGroupLayoutEntry {
             binding: 1,
             visibility: ShaderStages::FRAGMENT,
             ty: BindingType::Sampler(SamplerBindingType::Filtering),
             count: None,
         };
 
-        let texture_bind_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("Fragment Bind Group Layout"),
-            entries: &[texture_bind_layout, sampler_bind_layout],
-        });
-
-        // Create pipeline layout
-        let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: Some("Main Render Pipeline Layout"),
-            bind_group_layouts: &[&vertex_bind_layout, &texture_bind_layout],
-            push_constant_ranges: &[camera_push_constant],
-        });
-
-        let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("Main Render Pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: VertexState {
-                module: &vertex_shader,
-                entry_point: "main",
-                buffers: &[VertexBufferLayout {
-                    array_stride: 8,
-                    step_mode: VertexStepMode::Vertex,
-                    attributes: &[VertexAttribute {
-                        format: VertexFormat::Float32x2,
-                        offset: 0,
-                        shader_location: 0,
-                    }],
-                }],
-            },
-            fragment: Some(FragmentState {
-                module: &fragment_shader,
-                entry_point: "main",
-                targets: &[Some(ColorTargetState {
-                    blend: Some(BlendState::ALPHA_BLENDING),
-                    ..config.format.into()
-                })],
-            }),
-            primitive: PrimitiveState {
-                topology: PrimitiveTopology::TriangleStrip,
-                ..Default::default()
-            },
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-            multiview: None,
-        });
+        let fragment_texture_bind_layout = Rc::new(device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: Some("Fragment Texture Bind Group Layout"),
+            entries: &[texture_bind_entry, sampler_bind_entry],
+        }));
 
         // Create buffers
         let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
@@ -200,45 +160,48 @@ impl Kelp {
             entries: &[BindGroupEntry { binding: 0, resource: instance_buffer.as_entire_binding() }],
         });
 
-        // Create texture binding cache
-        let texture_binding_cache = TextureBindGroupCache::new(texture_bind_layout, linear_sampler, point_sampler);
+        // Create caches
+        let texture_bind_group_cache = RefCell::new(TextureBindGroupCache::new(
+            fragment_texture_bind_layout.clone(),
+            linear_sampler,
+            point_sampler,
+        ));
+
+        let pipeline_cache = RefCell::new(PipelineCache::new(
+            default_vertex_shader,
+            default_fragment_shader,
+            vertex_bind_layout,
+            fragment_texture_bind_layout,
+        ));
 
         Self {
             window_handle: window.raw_window_handle(),
             window_surface,
-            device,
-            queue,
-            pipeline,
-            config,
-            vertex_buffer,
-            instance_buffer,
-            vertex_bind_group,
-            texture_binding_cache,
+            window_surface_config,
+            resources: Rc::new(KelpResources {
+                device,
+                queue,
+                vertex_buffer,
+                instance_buffer,
+                vertex_bind_group,
+                texture_bind_group_cache,
+                pipeline_cache,
+            }),
         }
     }
 
     pub fn begin_render_pass(&mut self, camera: &Camera, clear: Option<Vec4>) -> KelpRenderPass {
         let surface = self.window_surface.get_current_texture().expect("Failed to acquire next swap chain texture");
         let view = surface.texture.create_view(&TextureViewDescriptor::default());
-        let encoder = self.device.create_command_encoder(&CommandEncoderDescriptor { label: None });
+        let encoder = self.resources.device.create_command_encoder(&CommandEncoderDescriptor { label: None });
 
-        KelpRenderPass {
-            kelp: self,
-            camera: camera.into(),
-            clear,
-            surface,
-            view,
-            encoder,
-            // TODO: at some point we could reuse these rather than allocating each time
-            instances: Vec::new(),
-            groups: Vec::new(),
-        }
+        KelpRenderPass::new(camera.into(), clear, surface, view, encoder, self.resources.clone())
     }
 
     pub fn create_texture_with_data(&self, width: u32, height: u32, data: &[u8]) -> KelpTexture {
         KelpTexture {
-            wgpu_texture: self.device.create_texture_with_data(
-                &self.queue,
+            wgpu_texture: self.resources.device.create_texture_with_data(
+                &self.resources.queue,
                 &TextureDescriptor {
                     label: None,
                     size: Extent3d { width, height, depth_or_array_layers: 1 },
@@ -255,13 +218,13 @@ impl Kelp {
     }
 
     pub fn set_surface_size(&mut self, width: u32, height: u32) {
-        self.config.width = width;
-        self.config.height = height;
-        self.window_surface.configure(&self.device, &self.config);
+        self.window_surface_config.width = width;
+        self.window_surface_config.height = height;
+        self.window_surface.configure(&self.resources.device, &self.window_surface_config);
     }
 
     pub fn update_buffer<T: NoUninit>(&self, buffer: &Buffer, data: &[T]) {
         let bytes = bytemuck::cast_slice(data);
-        self.queue.write_buffer(buffer, 0, bytes);
+        self.resources.queue.write_buffer(buffer, 0, bytes);
     }
 }
