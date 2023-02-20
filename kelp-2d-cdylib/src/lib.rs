@@ -34,7 +34,7 @@ pub unsafe extern "C" fn add_instances(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn begin_render_pass<'a>(camera_ptr: *const u8) -> *const KelpRenderPass<'a> {
+pub unsafe extern "C" fn begin_render_pass<'a>(camera_ptr: *const u8) -> *const KelpRenderPass {
     let kelp = KELP.as_mut().expect(KELP_NOT_FOUND);
     assert!(!camera_ptr.is_null());
     let camera_data = slice::from_raw_parts(camera_ptr, 64_usize);

@@ -55,6 +55,7 @@ impl PipelineCache {
         self.cache.get(id).expect("Invalid pipeline id.")
     }
 
+    #[allow(clippy::map_entry)]
     pub fn get_valid_pipeline_id(
         &mut self,
         device: &Device,

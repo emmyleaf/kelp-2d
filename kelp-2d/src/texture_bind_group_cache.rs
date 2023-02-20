@@ -34,6 +34,7 @@ impl TextureBindGroupCache {
         self.cache.get(id).expect("Invalid bind group id.")
     }
 
+    #[allow(clippy::map_entry)]
     pub fn get_valid_bind_group_id(
         &mut self,
         device: &Device,
