@@ -30,7 +30,7 @@ pub unsafe extern "C" fn add_instances(
     let texture = texture_ptr.as_ref().expect("texture_ptr not set to a valid KelpTexture");
     assert!(!instance_ptr.is_null());
     let instances = slice::from_raw_parts(instance_ptr, count as usize);
-    pass.add_instances(texture, smooth, instances);
+    pass.add_instances(texture, smooth, todo!(), instances);
 }
 
 #[no_mangle]

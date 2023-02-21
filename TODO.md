@@ -13,5 +13,5 @@
         - What if we open up the remaining 64 bytes of push constants? that will cover most shaders used in tmfbma/dddb
         - Will still need a binding slot for texture/buffer parameters etc
         - Write guide to writing custom shaders (maybe this belongs in Lutra docs...)
-- [ ] Imgui rendering! (super simple with `imgui-wgpu` crate)
-    - the harder parts will be making sure we can shunt ImGui draw data & SDL2 events from Lutra
+- [@] Imgui rendering! (based on `imgui-wgpu`)
+    - [ ] update C ffi and make sure we can shunt ImGui draw data from Lutra

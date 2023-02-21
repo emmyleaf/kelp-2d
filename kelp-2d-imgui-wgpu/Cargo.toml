@@ -1,0 +1,24 @@
+[package]
+name = "kelp-2d-imgui-wgpu"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "A wgpu render backend for imgui-rs, customised for kelp-2d"
+readme = "README.md"
+categories = ["gui", "graphics", "rendering", "rendering::graphics-api"]
+keywords = ["gui", "graphics", "wgpu", "imgui"]
+
+[dependencies]
+bytemuck = { workspace = true }
+# TODO: remove imgui dep once types extracted
+glam = { workspace = true }
+imgui = { version = "0.10", features = ["docking"] }
+log = { workspace = true }
+smallvec = { workspace = true }
+rustc-hash = { workspace = true }
+wgpu = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true
