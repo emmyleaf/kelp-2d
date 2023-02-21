@@ -1,11 +1,10 @@
 #![feature(c_size_t)]
-#![feature(box_into_inner)]
 #![allow(clippy::missing_safety_doc)]
 
 mod window;
 
 use core::{ffi::c_size_t, slice};
-use kelp_2d::{InstanceData, Kelp, KelpRenderPass, KelpTexture};
+use kelp_2d::{BlendMode, Camera, InstanceData, Kelp, KelpRenderPass, KelpTexture};
 use window::Window;
 
 static mut KELP: Option<Kelp> = None;
@@ -23,6 +22,7 @@ pub unsafe extern "C" fn add_instances(
     pass_ptr: *mut KelpRenderPass,
     texture_ptr: *mut KelpTexture,
     smooth: bool,
+    blend_mode: BlendMode,
     instance_ptr: *const InstanceData,
     count: u32,
 ) {
@@ -30,15 +30,21 @@ pub unsafe extern "C" fn add_instances(
     let texture = texture_ptr.as_ref().expect("texture_ptr not set to a valid KelpTexture");
     assert!(!instance_ptr.is_null());
     let instances = slice::from_raw_parts(instance_ptr, count as usize);
-    pass.add_instances(texture, smooth, todo!(), instances);
+    pass.add_instances(texture, smooth, blend_mode, instances);
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn begin_render_pass<'a>(camera_ptr: *const u8) -> *const KelpRenderPass {
+pub unsafe extern "C" fn begin_render_pass(
+    camera_ptr: *const Camera,
+    clear_ptr: *const [f32; 4],
+) -> *const KelpRenderPass {
     let kelp = KELP.as_mut().expect(KELP_NOT_FOUND);
     assert!(!camera_ptr.is_null());
-    let camera_data = slice::from_raw_parts(camera_ptr, 64_usize);
-    Box::into_raw(Box::new(kelp.begin_render_pass(todo!(), todo!())))
+    let clear = match clear_ptr.is_null() {
+        true => None,
+        false => Some((*clear_ptr).into()),
+    };
+    Box::into_raw(Box::new(kelp.begin_render_pass(&*camera_ptr, clear)))
 }
 
 #[no_mangle]
@@ -46,11 +52,11 @@ pub unsafe extern "C" fn create_texture_with_data(
     width: u32,
     height: u32,
     data_ptr: *const u8,
-    data_len: c_size_t,
+    data_len: u32,
 ) -> *mut KelpTexture {
     let kelp = KELP.as_ref().expect(KELP_NOT_FOUND);
     assert!(!data_ptr.is_null());
-    let data = slice::from_raw_parts(data_ptr, data_len);
+    let data = slice::from_raw_parts(data_ptr, data_len as usize);
     let kelp_texture = kelp.create_texture_with_data(width, height, data);
     Box::into_raw(Box::new(kelp_texture))
 }
@@ -58,7 +64,7 @@ pub unsafe extern "C" fn create_texture_with_data(
 #[no_mangle]
 pub unsafe extern "C" fn end_render_pass(frame_ptr: *mut KelpRenderPass) {
     assert!(!frame_ptr.is_null());
-    Box::into_inner(Box::from_raw(frame_ptr)).finish();
+    Box::from_raw(frame_ptr).finish();
 }
 
 #[no_mangle]
