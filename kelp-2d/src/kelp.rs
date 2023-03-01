@@ -1,6 +1,7 @@
-use crate::{Camera, KelpRenderPass, KelpTexture, PipelineCache, TextureBindGroupCache};
+use crate::{Camera, ImGuiConfig, KelpRenderPass, KelpTexture, PipelineCache, TextureBindGroupCache};
 use bytemuck::NoUninit;
 use glam::Vec4;
+use kelp_2d_imgui_wgpu::ImGuiRenderer;
 use naga::{FastHashMap, ShaderStage};
 use pollster::FutureExt;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle, RawWindowHandle};
@@ -32,10 +33,16 @@ pub(crate) struct KelpResources {
     pub(crate) vertex_bind_group: BindGroup,
     pub(crate) texture_bind_group_cache: RefCell<TextureBindGroupCache>,
     pub(crate) pipeline_cache: RefCell<PipelineCache>,
+    pub(crate) imgui_renderer: Option<ImGuiRenderer>,
 }
 
 impl Kelp {
-    pub fn new<W: HasRawWindowHandle + HasRawDisplayHandle>(window: W, width: u32, height: u32) -> Kelp {
+    pub fn new<W: HasRawWindowHandle + HasRawDisplayHandle>(
+        window: W,
+        width: u32,
+        height: u32,
+        imgui_config: Option<&mut ImGuiConfig>,
+    ) -> Kelp {
         let instance = Instance::new(InstanceDescriptor { backends: Backends::PRIMARY, ..Default::default() });
         let window_surface = unsafe { instance.create_surface(&window).unwrap() };
         let adapter = instance
@@ -174,6 +181,10 @@ impl Kelp {
             fragment_texture_bind_layout,
         ));
 
+        // Create ImGui renderer if passed a config, otherwise do not
+        let imgui_renderer =
+            imgui_config.map(|config| ImGuiRenderer::new(&mut config.0, &device, &queue, Default::default()));
+
         Self {
             window_handle: window.raw_window_handle(),
             window_surface,
@@ -186,6 +197,7 @@ impl Kelp {
                 vertex_bind_group,
                 texture_bind_group_cache,
                 pipeline_cache,
+                imgui_renderer,
             }),
         }
     }
@@ -216,6 +228,8 @@ impl Kelp {
             ),
         }
     }
+
+    pub fn render_imgui() {}
 
     pub fn set_surface_size(&mut self, width: u32, height: u32) {
         self.window_surface_config.width = width;

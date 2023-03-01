@@ -1,5 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec4};
+use kelp_2d_imgui_wgpu::FontTexture;
 use wgpu::Texture;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -53,6 +54,9 @@ pub struct InstanceGPU {
     pub source: Mat4,
     pub world: Mat4,
 }
+
+#[repr(transparent)]
+pub struct ImGuiConfig(pub(crate) FontTexture);
 
 impl Default for Transform {
     fn default() -> Self {

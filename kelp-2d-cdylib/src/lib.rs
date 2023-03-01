@@ -4,7 +4,7 @@
 mod window;
 
 use core::{ffi::c_size_t, slice};
-use kelp_2d::{BlendMode, Camera, InstanceData, Kelp, KelpRenderPass, KelpTexture};
+use kelp_2d::{BlendMode, Camera, ImGuiConfig, InstanceData, Kelp, KelpRenderPass, KelpTexture};
 use window::Window;
 
 static mut KELP: Option<Kelp> = None;
@@ -12,9 +12,13 @@ static mut KELP: Option<Kelp> = None;
 const KELP_NOT_FOUND: &str = "Cannot call any functions before initialise or after uninitialise.";
 
 #[no_mangle]
-pub unsafe extern "C" fn initialise(window: Window) {
+pub unsafe extern "C" fn initialise(window: Window, imgui_config_ptr: *mut ImGuiConfig) {
     env_logger::init();
-    KELP = Some(Kelp::new(&window, window.width, window.height));
+    let imgui_config = match imgui_config_ptr.is_null() {
+        true => None,
+        false => Some(&mut *imgui_config_ptr),
+    };
+    KELP = Some(Kelp::new(&window, window.width, window.height, imgui_config));
 }
 
 #[no_mangle]

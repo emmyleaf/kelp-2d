@@ -10,7 +10,7 @@ use winit::{
 async fn run(event_loop: EventLoop<()>, window: Window) {
     let size = window.inner_size();
 
-    let mut kelp = Kelp::new(&window, size.width, size.height);
+    let mut kelp = Kelp::new(&window, size.width, size.height, None);
 
     // Set initial camera matrix
     let mut camera =
@@ -18,7 +18,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     let clear = Some(glam::vec4(0.1, 0.0, 0.1, 1.0));
 
     // Create petal texture & bind group
-    let decoder = png::Decoder::new(File::open(Path::new("./kelp-2d/examples/instanced/petal.png")).unwrap());
+    let decoder = png::Decoder::new(File::open(Path::new("./kelp-2d/examples/petal.png")).unwrap());
     let mut reader = decoder.read_info().unwrap();
     let (tex_width, tex_height) = reader.info().size();
     let mut data = vec![0; reader.output_buffer_size()];

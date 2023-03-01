@@ -1,6 +1,5 @@
 use std::slice;
 
-// use crate::internal::{RawCast, RawWrapper};
 use super::{cimgui, TextureId};
 
 /// All draw data to render a Dear ImGui frame.

@@ -12,9 +12,7 @@ keywords = ["gui", "graphics", "wgpu", "imgui"]
 
 [dependencies]
 bytemuck = { workspace = true }
-# TODO: remove imgui dep once types extracted
 glam = { workspace = true }
-imgui = { version = "0.10", features = ["docking"] }
 log = { workspace = true }
 smallvec = { workspace = true }
 rustc-hash = { workspace = true }

@@ -1,7 +1,8 @@
 use rustc_hash::FxHashMap;
 
 #[derive(Clone, Debug)]
-pub struct FontTexture<'a> {
+#[repr(C)]
+pub struct FontTexture {
     /// Texture identifier
     pub tex_id: Option<TextureId>,
     /// Texture width (in pixels)
@@ -11,7 +12,9 @@ pub struct FontTexture<'a> {
     /// Raw texture data (in bytes).
     ///
     /// The format depends on which function was called to obtain this data.
-    pub data: &'a [u8],
+    pub data: *const u8,
+    /// The length of the data array
+    pub data_length: u32,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]

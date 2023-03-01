@@ -2,13 +2,15 @@ mod types;
 
 use smallvec::SmallVec;
 use std::error::Error;
-use std::fmt;
 use std::mem::size_of;
 use std::num::NonZeroU32;
 use std::sync::Arc;
-use types::{DrawCmd::Elements, DrawData, DrawIdx, DrawList, DrawVert, FontTexture, TextureId, Textures};
+use std::{fmt, slice};
+use types::{DrawCmd::Elements, DrawData, DrawIdx, DrawList, DrawVert, TextureId, Textures};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::*;
+
+pub use types::FontTexture;
 
 static VS_ENTRY_POINT: &str = "vs_main";
 static FS_ENTRY_POINT_LINEAR: &str = "fs_main_linear";
@@ -113,6 +115,7 @@ impl<'a> Default for TextureConfig<'a> {
 }
 
 /// A container for a bindable texture.
+#[derive(Debug)]
 pub struct Texture {
     texture: Arc<wgpu::Texture>,
     view: Arc<wgpu::TextureView>,
@@ -126,7 +129,7 @@ impl Texture {
     /// - `config`: The config used for creating the bind group. If `bind_group` is `Some(_)`, it will be ignored
     pub fn from_raw_parts(
         device: &Device,
-        renderer: &Renderer,
+        renderer: &ImGuiRenderer,
         texture: Arc<wgpu::Texture>,
         view: Arc<wgpu::TextureView>,
         bind_group: Option<Arc<BindGroup>>,
@@ -154,7 +157,7 @@ impl Texture {
     }
 
     /// Create a new GPU texture width the specified `config`.
-    pub fn new(device: &Device, renderer: &Renderer, config: TextureConfig) -> Self {
+    pub fn new(device: &Device, renderer: &ImGuiRenderer, config: TextureConfig) -> Self {
         // Create the wgpu texture.
         let texture = Arc::new(device.create_texture(&TextureDescriptor {
             label: config.label,
@@ -162,9 +165,9 @@ impl Texture {
             mip_level_count: config.mip_level_count,
             sample_count: config.sample_count,
             dimension: config.dimension,
-            format: config.format.unwrap_or(renderer.config.texture_format),
+            format: config.format.unwrap_or(renderer.texture_format),
             usage: config.usage,
-            view_formats: &[config.format.unwrap_or(renderer.config.texture_format)],
+            view_formats: &[config.format.unwrap_or(renderer.texture_format)],
         }));
 
         // Extract the texture view.
@@ -299,6 +302,7 @@ impl RendererConfig<'_> {
     }
 }
 
+#[derive(Debug)]
 pub struct RenderData {
     fb_size: [f32; 2],
     last_size: [f32; 2],
@@ -311,18 +315,19 @@ pub struct RenderData {
     render: bool,
 }
 
-pub struct Renderer {
+#[derive(Debug)]
+pub struct ImGuiRenderer {
     pipeline: RenderPipeline,
     uniform_buffer: Buffer,
     uniform_bind_group: BindGroup,
     /// Textures of the font atlas and all images.
     pub textures: Textures<Texture>,
     texture_layout: BindGroupLayout,
+    texture_format: TextureFormat,
     render_data: Option<RenderData>,
-    config: RendererConfig<'static>,
 }
 
-impl Renderer {
+impl ImGuiRenderer {
     /// Create an entirely new imgui wgpu renderer.
     pub fn new(font_texture: &mut FontTexture, device: &Device, queue: &Queue, config: RendererConfig) -> Self {
         let RendererConfig {
@@ -458,15 +463,8 @@ impl Renderer {
             uniform_bind_group,
             textures: Textures::new(),
             texture_layout,
+            texture_format,
             render_data: None,
-            config: RendererConfig {
-                texture_format,
-                depth_format,
-                sample_count,
-                shader: None,
-                vertex_shader_entry_point: None,
-                fragment_shader_entry_point: None,
-            },
         };
 
         // Immediately load the font texture to the GPU.
@@ -725,7 +723,10 @@ impl Renderer {
         };
 
         let texture = Texture::new(device, self, texture_config);
-        texture.write(queue, font_texture.data, font_texture.width, font_texture.height);
+        unsafe {
+            let data = slice::from_raw_parts(font_texture.data, font_texture.data_length as usize);
+            texture.write(queue, data, font_texture.width, font_texture.height);
+        }
         font_texture.tex_id = Some(self.textures.insert(texture));
         // Clear imgui texture data to save memory.
         // TODO? fonts.clear_tex_data();
