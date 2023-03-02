@@ -1,8 +1,10 @@
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec4};
+use interoptopus::ffi_type;
 use kelp_2d_imgui_wgpu::FontTexture;
 use wgpu::Texture;
 
+#[ffi_type]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 #[repr(u8)]
 pub enum BlendMode {
@@ -10,12 +12,24 @@ pub enum BlendMode {
     ADDITIVE = 1,
 }
 
+#[ffi_type]
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct KelpColor {
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
+}
+
+#[ffi_type(opaque)]
 #[derive(Debug)]
 #[repr(C)]
 pub struct KelpTexture {
     pub(crate) wgpu_texture: Texture,
 }
 
+#[ffi_type]
 #[derive(Debug)]
 #[repr(C)]
 pub struct Transform {
@@ -28,6 +42,7 @@ pub struct Transform {
     pub origin_y: f32,
 }
 
+#[ffi_type]
 #[derive(Debug)]
 #[repr(C)]
 pub struct Camera {
@@ -39,6 +54,7 @@ pub struct Camera {
     pub scale: f32,
 }
 
+#[ffi_type]
 #[derive(Debug)]
 #[repr(C)]
 pub struct InstanceData {

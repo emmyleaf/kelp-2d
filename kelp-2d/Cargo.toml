@@ -16,6 +16,7 @@ crate-type = ["rlib"]
 [dependencies]
 bytemuck = { workspace = true }
 glam = { workspace = true }
+interoptopus = { workspace = true }
 kelp-2d-imgui-wgpu = { path = "../kelp-2d-imgui-wgpu" }
 naga = { workspace = true }
 pollster = { workspace = true }

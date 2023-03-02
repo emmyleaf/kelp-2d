@@ -17,6 +17,3 @@ log = { workspace = true }
 smallvec = { workspace = true }
 rustc-hash = { workspace = true }
 wgpu = { workspace = true }
-
-[package.metadata.docs.rs]
-all-features = true

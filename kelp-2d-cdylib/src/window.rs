@@ -1,10 +1,12 @@
 use core::ffi::c_void;
+use interoptopus::ffi_type;
 use raw_window_handle::{
     AppKitDisplayHandle, AppKitWindowHandle, HasRawDisplayHandle, HasRawWindowHandle, RawDisplayHandle,
     RawWindowHandle, WaylandDisplayHandle, WaylandWindowHandle, Win32WindowHandle, WindowsDisplayHandle,
     XlibDisplayHandle, XlibWindowHandle,
 };
 
+#[ffi_type]
 #[repr(u8)]
 #[derive(Debug)]
 pub enum WindowType {
@@ -14,6 +16,7 @@ pub enum WindowType {
     AppKit = 3,
 }
 
+#[ffi_type]
 #[repr(C)]
 #[derive(Debug)]
 pub struct Window {

@@ -1,8 +1,8 @@
 use crate::{
     pipeline_cache::PipelineId, texture_bind_group_cache::TextureBindGroupId, BlendMode, InstanceData, InstanceGPU,
-    KelpResources, KelpTexture,
+    KelpColor, KelpResources, KelpTexture,
 };
-use glam::{Mat4, Vec4};
+use glam::Mat4;
 use std::{ops::Range, rc::Rc};
 use wgpu::{
     Color, CommandEncoder, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, ShaderStages,
@@ -19,7 +19,7 @@ struct InstanceGroup {
 #[derive(Debug)]
 pub struct KelpRenderPass {
     pub camera: Mat4,
-    pub clear: Option<Vec4>,
+    pub clear: Option<KelpColor>,
     pub surface: SurfaceTexture,
     pub view: TextureView,
     pub encoder: CommandEncoder, // TODO: move this out of here...
@@ -31,7 +31,7 @@ pub struct KelpRenderPass {
 impl KelpRenderPass {
     pub(crate) fn new(
         camera: Mat4,
-        clear: Option<Vec4>,
+        clear: Option<KelpColor>,
         surface: SurfaceTexture,
         view: TextureView,
         encoder: CommandEncoder,
@@ -82,8 +82,8 @@ impl KelpRenderPass {
             let texture_bind_group_cache = self.resources.texture_bind_group_cache.borrow();
             let pipeline_cache = self.resources.pipeline_cache.borrow();
 
-            let load = self.clear.map_or(LoadOp::Load, |v| {
-                LoadOp::Clear(Color { r: v.x as f64, g: v.y as f64, b: v.z as f64, a: v.w as f64 })
+            let load = self.clear.map_or(LoadOp::Load, |c| {
+                LoadOp::Clear(Color { r: c.r as f64, g: c.g as f64, b: c.b as f64, a: c.a as f64 })
             });
             let mut wgpu_pass = self.encoder.begin_render_pass(&RenderPassDescriptor {
                 color_attachments: &[Some(RenderPassColorAttachment {

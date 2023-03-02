@@ -16,6 +16,8 @@ categories = ["game-development", "graphics", "rendering", "rendering::engine"]
 bytemuck = "1"
 env_logger = "0.10"
 glam = { version = "0.23", features = ["bytemuck"] }
+interoptopus = { version = "0.14", features = ["derive", "log"] }
+interoptopus_backend_csharp = "0.14"
 log = "0.4"
 naga = "0.11"
 png = "0.17"

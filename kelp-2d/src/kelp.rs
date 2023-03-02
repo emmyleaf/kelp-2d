@@ -1,6 +1,5 @@
-use crate::{Camera, ImGuiConfig, KelpRenderPass, KelpTexture, PipelineCache, TextureBindGroupCache};
+use crate::{Camera, ImGuiConfig, KelpColor, KelpRenderPass, KelpTexture, PipelineCache, TextureBindGroupCache};
 use bytemuck::NoUninit;
-use glam::Vec4;
 use kelp_2d_imgui_wgpu::ImGuiRenderer;
 use naga::{FastHashMap, ShaderStage};
 use pollster::FutureExt;
@@ -202,7 +201,7 @@ impl Kelp {
         }
     }
 
-    pub fn begin_render_pass(&mut self, camera: &Camera, clear: Option<Vec4>) -> KelpRenderPass {
+    pub fn begin_render_pass(&mut self, camera: &Camera, clear: Option<KelpColor>) -> KelpRenderPass {
         let surface = self.window_surface.get_current_texture().expect("Failed to acquire next swap chain texture");
         let view = surface.texture.create_view(&TextureViewDescriptor::default());
         let encoder = self.resources.device.create_command_encoder(&CommandEncoderDescriptor { label: None });
