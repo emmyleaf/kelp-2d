@@ -1,4 +1,7 @@
-use crate::{Camera, ImGuiConfig, KelpColor, KelpRenderPass, KelpTexture, PipelineCache, TextureBindGroupCache};
+use crate::{
+    Camera, ImGuiConfig, KelpColor, KelpError, KelpFrame, KelpRenderPass, KelpTexture, PipelineCache,
+    TextureBindGroupCache,
+};
 use bytemuck::NoUninit;
 use kelp_2d_imgui_wgpu::ImGuiRenderer;
 use naga::{FastHashMap, ShaderStage};
@@ -17,10 +20,11 @@ use wgpu::{
 
 #[derive(Debug)]
 pub struct Kelp {
-    pub window_handle: RawWindowHandle,
-    pub window_surface: Surface,
-    pub window_surface_config: SurfaceConfiguration,
+    pub(crate) window_handle: RawWindowHandle,
+    pub(crate) window_surface: Surface,
+    pub(crate) window_surface_config: SurfaceConfiguration,
     pub(crate) resources: Rc<KelpResources>,
+    pub(crate) current_frame: Option<KelpFrame>,
 }
 
 #[derive(Debug)]
@@ -198,15 +202,38 @@ impl Kelp {
                 pipeline_cache,
                 imgui_renderer,
             }),
+            current_frame: None,
         }
     }
 
-    pub fn begin_render_pass(&mut self, camera: &Camera, clear: Option<KelpColor>) -> KelpRenderPass {
-        let surface = self.window_surface.get_current_texture().expect("Failed to acquire next swap chain texture");
-        let view = surface.texture.create_view(&TextureViewDescriptor::default());
+    pub fn begin_frame(&mut self) -> Result<(), KelpError> {
+        let surface = self.window_surface.get_current_texture()?;
         let encoder = self.resources.device.create_command_encoder(&CommandEncoderDescriptor { label: None });
+        self.current_frame = Some(KelpFrame { surface, encoder });
+        Ok(())
+    }
 
-        KelpRenderPass::new(camera.into(), clear, surface, view, encoder, self.resources.clone())
+    pub fn draw_frame(&mut self) -> Result<(), KelpError> {
+        let frame = self.current_frame.take().ok_or(KelpError::NoCurrentFrame)?;
+        self.resources.queue.submit(Some(frame.encoder.finish()));
+        frame.surface.present();
+        Ok(())
+    }
+
+    pub fn begin_render_pass(
+        &mut self,
+        camera: &Camera,
+        clear: Option<KelpColor>,
+    ) -> Result<KelpRenderPass, KelpError> {
+        let frame = self.current_frame.as_ref().ok_or(KelpError::NoCurrentFrame)?;
+        let target_view = frame.surface.texture.create_view(&TextureViewDescriptor::default());
+        Ok(KelpRenderPass::new(camera.into(), clear, target_view, self.resources.clone()))
+    }
+
+    pub fn submit_render_pass(&mut self, pass: KelpRenderPass) -> Result<(), KelpError> {
+        let frame = self.current_frame.as_mut().ok_or(KelpError::NoCurrentFrame)?;
+        pass.finish(&mut frame.encoder);
+        Ok(())
     }
 
     pub fn create_texture_with_data(&self, width: u32, height: u32, data: &[u8]) -> KelpTexture {

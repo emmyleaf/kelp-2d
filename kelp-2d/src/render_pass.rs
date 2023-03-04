@@ -1,12 +1,11 @@
 use crate::{
-    pipeline_cache::PipelineId, texture_bind_group_cache::TextureBindGroupId, BlendMode, InstanceData, InstanceGPU,
-    KelpColor, KelpResources, KelpTexture,
+    BlendMode, InstanceData, InstanceGPU, KelpColor, KelpResources, KelpTexture, PipelineId, TextureBindGroupId,
 };
 use glam::Mat4;
 use std::{ops::Range, rc::Rc};
 use wgpu::{
     Color, CommandEncoder, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, ShaderStages,
-    SurfaceTexture, TextureView,
+    TextureView,
 };
 
 #[derive(Debug)]
@@ -18,12 +17,10 @@ struct InstanceGroup {
 
 #[derive(Debug)]
 pub struct KelpRenderPass {
-    pub camera: Mat4,
-    pub clear: Option<KelpColor>,
-    pub surface: SurfaceTexture,
-    pub view: TextureView,
-    pub encoder: CommandEncoder, // TODO: move this out of here...
-    pub(crate) resources: Rc<KelpResources>,
+    camera: Mat4,
+    clear: Option<KelpColor>,
+    target_view: TextureView,
+    resources: Rc<KelpResources>,
     instances: Vec<InstanceGPU>,
     groups: Vec<InstanceGroup>,
 }
@@ -32,17 +29,13 @@ impl KelpRenderPass {
     pub(crate) fn new(
         camera: Mat4,
         clear: Option<KelpColor>,
-        surface: SurfaceTexture,
-        view: TextureView,
-        encoder: CommandEncoder,
+        target_view: TextureView,
         resources: Rc<KelpResources>,
     ) -> Self {
         Self {
             camera,
             clear,
-            surface,
-            view,
-            encoder,
+            target_view,
             resources,
             instances: Vec::new(),
             groups: Vec::new(),
@@ -69,12 +62,11 @@ impl KelpRenderPass {
         self.groups.push(InstanceGroup { range, bind_group_id, pipeline_id });
     }
 
-    pub fn finish(mut self) {
+    pub(crate) fn finish(self, encoder: &mut CommandEncoder) {
         if self.groups.is_empty() || self.instances.is_empty() {
             return;
         }
 
-        // Update instance buffer
         let instances_bytes = bytemuck::cast_slice(self.instances.as_slice());
         self.resources.queue.write_buffer(&self.resources.instance_buffer, 0, instances_bytes);
 
@@ -85,32 +77,36 @@ impl KelpRenderPass {
             let load = self.clear.map_or(LoadOp::Load, |c| {
                 LoadOp::Clear(Color { r: c.r as f64, g: c.g as f64, b: c.b as f64, a: c.a as f64 })
             });
-            let mut wgpu_pass = self.encoder.begin_render_pass(&RenderPassDescriptor {
+            let mut wgpu_pass = encoder.begin_render_pass(&RenderPassDescriptor {
                 color_attachments: &[Some(RenderPassColorAttachment {
-                    view: &self.view,
+                    view: &self.target_view,
                     resolve_target: None,
                     ops: Operations { load, store: true },
                 })],
                 ..Default::default()
             });
 
-            // let mut current_pipeline = ?
+            // Always set the pipeline first time around
+            let mut current_pipeline_id = self.groups[0].pipeline_id;
+            wgpu_pass.set_pipeline(pipeline_cache.get_pipeline(&current_pipeline_id));
+            wgpu_pass.set_push_constants(ShaderStages::VERTEX, 0, bytemuck::cast_slice(self.camera.as_ref()));
+            wgpu_pass.set_vertex_buffer(0, self.resources.vertex_buffer.slice(..));
+            wgpu_pass.set_bind_group(0, &self.resources.vertex_bind_group, &[]);
 
             for group in self.groups {
-                let bind_group = texture_bind_group_cache.get_bind_group(&group.bind_group_id);
-                let pipeline = pipeline_cache.get_pipeline(&group.pipeline_id);
+                // Only set if the pipeline id changes
+                if current_pipeline_id != group.pipeline_id {
+                    current_pipeline_id = group.pipeline_id;
+                    wgpu_pass.set_pipeline(pipeline_cache.get_pipeline(&current_pipeline_id));
+                    wgpu_pass.set_push_constants(ShaderStages::VERTEX, 0, bytemuck::cast_slice(self.camera.as_ref()));
+                    wgpu_pass.set_vertex_buffer(0, self.resources.vertex_buffer.slice(..));
+                    wgpu_pass.set_bind_group(0, &self.resources.vertex_bind_group, &[]);
+                }
 
-                // TODO: avoid setting pipeline when it doesn't need to change - too much overhead for every draw call
-                wgpu_pass.set_pipeline(pipeline);
-                wgpu_pass.set_push_constants(ShaderStages::VERTEX, 0, bytemuck::bytes_of(self.camera.as_ref()));
-                wgpu_pass.set_vertex_buffer(0, self.resources.vertex_buffer.slice(..));
-                wgpu_pass.set_bind_group(0, &self.resources.vertex_bind_group, &[]);
-                wgpu_pass.set_bind_group(1, bind_group, &[]);
+                let bind_group_1 = texture_bind_group_cache.get_bind_group(&group.bind_group_id);
+                wgpu_pass.set_bind_group(1, bind_group_1, &[]);
                 wgpu_pass.draw(0..4, group.range);
             }
         }
-
-        self.resources.queue.submit(Some(self.encoder.finish()));
-        self.surface.present();
     }
 }

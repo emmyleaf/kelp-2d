@@ -1,5 +1,5 @@
 use crate::KelpTexture;
-use rustc_hash::FxHashMap;
+use ahash::AHashMap;
 use std::rc::Rc;
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindingResource, Device, Id, Sampler,
@@ -14,7 +14,7 @@ pub(crate) struct TextureBindGroupId {
 
 #[derive(Debug)]
 pub(crate) struct TextureBindGroupCache {
-    cache: FxHashMap<TextureBindGroupId, BindGroup>,
+    cache: AHashMap<TextureBindGroupId, BindGroup>,
     texture_bind_layout: Rc<BindGroupLayout>,
     linear_sampler: Sampler,
     point_sampler: Sampler,

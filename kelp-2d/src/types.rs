@@ -2,7 +2,8 @@ use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec4};
 use interoptopus::ffi_type;
 use kelp_2d_imgui_wgpu::FontTexture;
-use wgpu::Texture;
+use thiserror::Error;
+use wgpu::{CommandEncoder, SurfaceTexture, Texture};
 
 #[ffi_type]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -27,6 +28,12 @@ pub struct KelpColor {
 #[repr(C)]
 pub struct KelpTexture {
     pub(crate) wgpu_texture: Texture,
+}
+
+#[derive(Debug)]
+pub struct KelpFrame {
+    pub(crate) surface: SurfaceTexture,
+    pub(crate) encoder: CommandEncoder,
 }
 
 #[ffi_type]
@@ -73,6 +80,14 @@ pub struct InstanceGPU {
 
 #[repr(transparent)]
 pub struct ImGuiConfig(pub(crate) FontTexture);
+
+#[derive(Error, Debug)]
+pub enum KelpError {
+    #[error("Cannot interact with a frame before beginning one")]
+    NoCurrentFrame,
+    #[error("Failed to acquire next swap chain texture")]
+    SwapchainError(#[from] wgpu::SurfaceError),
+}
 
 impl Default for Transform {
     fn default() -> Self {

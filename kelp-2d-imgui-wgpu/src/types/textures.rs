@@ -1,4 +1,4 @@
-use rustc_hash::FxHashMap;
+use ahash::AHashMap;
 
 #[derive(Clone, Debug)]
 #[repr(C)]
@@ -23,7 +23,7 @@ pub struct TextureId(usize);
 
 #[derive(Debug, Default)]
 pub struct Textures<T> {
-    textures: FxHashMap<usize, T>,
+    textures: AHashMap<usize, T>,
     next: usize,
 }
 

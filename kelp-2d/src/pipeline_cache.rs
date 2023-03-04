@@ -1,11 +1,11 @@
 use crate::BlendMode;
-use rustc_hash::FxHashMap;
+use ahash::AHashMap;
 use std::rc::Rc;
 use wgpu::{
     BindGroupLayout, BlendComponent, BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrites, Device,
-    FragmentState, Id, MultisampleState, PipelineLayoutDescriptor, PrimitiveState, PrimitiveTopology,
-    PushConstantRange, RenderPipeline, RenderPipelineDescriptor, ShaderModule, ShaderStages, TextureFormat,
-    VertexAttribute, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+    FragmentState, MultisampleState, PipelineLayoutDescriptor, PrimitiveState, PrimitiveTopology, PushConstantRange,
+    RenderPipeline, RenderPipelineDescriptor, ShaderModule, ShaderStages, TextureFormat, VertexAttribute,
+    VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
 };
 
 const BLEND_COMPONENT_ADDITIVE: BlendComponent = BlendComponent {
@@ -22,13 +22,13 @@ const CAMERA_PUSH_CONSTANT: PushConstantRange = PushConstantRange { stages: Shad
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub(crate) struct PipelineId {
     // thanks to NPO, this is transparently zero for None, and the NonZeroU64 from inside wgpu::Id for Some
-    shader_id: Option<Id>,
+    shader_id: Option<wgpu::Id>,
     blend_mode: BlendMode,
 }
 
 #[derive(Debug)]
 pub(crate) struct PipelineCache {
-    cache: FxHashMap<PipelineId, RenderPipeline>,
+    cache: AHashMap<PipelineId, RenderPipeline>,
     default_vertex_shader: ShaderModule,
     default_fragment_shader: ShaderModule,
     vertex_bind_layout: BindGroupLayout,

@@ -8,7 +8,7 @@ pub mod csharp {
         InventoryBuilder::new()
             .register(function!(initialise))
             .register(function!(render_pass))
-            .register(function!(create_texture_with_data))
+            // .register(function!(create_texture_with_data))
             .register(function!(free_texture))
             .register(function!(set_surface_size))
             .register(function!(uninitialise))

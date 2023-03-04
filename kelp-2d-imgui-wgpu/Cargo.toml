@@ -11,9 +11,9 @@ categories = ["gui", "graphics", "rendering", "rendering::graphics-api"]
 keywords = ["gui", "graphics", "wgpu", "imgui"]
 
 [dependencies]
+ahash = { workspace = true }
 bytemuck = { workspace = true }
 glam = { workspace = true }
 log = { workspace = true }
 smallvec = { workspace = true }
-rustc-hash = { workspace = true }
 wgpu = { workspace = true }

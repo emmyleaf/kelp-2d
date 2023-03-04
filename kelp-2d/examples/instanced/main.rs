@@ -72,10 +72,12 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
             }
             Event::MainEventsCleared => {
                 camera.scale += 0.001;
-                let mut pass = kelp.begin_render_pass(&camera, clear);
+                kelp.begin_frame().unwrap();
+                let mut pass = kelp.begin_render_pass(&camera, clear).unwrap();
                 pass.add_instances(&petal_texture, false, BlendMode::ALPHA, instance_data.as_slice());
                 pass.add_instances(&petal_texture, true, BlendMode::ALPHA, instance_data_2.as_slice());
-                pass.finish();
+                kelp.submit_render_pass(pass).unwrap();
+                kelp.draw_frame().unwrap();
             }
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => *control_flow = ControlFlow::Exit,
             _ => {}

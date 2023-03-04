@@ -9,12 +9,15 @@
 - [@] Custom pipelines created on demand
     - [x] Blend modes
     - [ ] Custom fragment shaders
-        - Shader parameters - do we keep the dynamic API or design something stricter?
+        - Shader parameters - describe the layout at creation time
         - What if we open up the remaining 64 bytes of push constants? that will cover most shaders used in tmfbma/dddb
         - Will still need a binding slot for texture/buffer parameters etc
         - Write guide to writing custom shaders (maybe this belongs in Lutra docs...)
+- [x] Avoid setting pipeline when it doesn't need to change - too much overhead for every draw call
 - [@] Imgui rendering! (based on `imgui-wgpu`)
-    - [ ] update C ffi and make sure we can shunt ImGui draw data from Lutra
+    - [ ] update C# ffi and make sure we can shunt ImGui draw data from Lutra
 - [ ] Allow multiple world transforms per instance from API - condense to one matrix for GPU still of course
-- [ ] Add whole batches of instances at a time - Lutra will ideally dump a whole buffers worth once it fills up
-- [ ] Look into `interoptopus` crate for making the bindings!
+- [@] Add whole batches of instances at a time - Lutra will ideally dump a whole buffers worth once it fills up
+- [@] Use `interoptopus` crate to generate C# bindings!
+- [ ] Fix texture handling by caching them and returning references instead of owning and sending boxed pointers
+- [@] Add error handling to the rust API

@@ -14,6 +14,7 @@ readme = "../README.md"
 crate-type = ["rlib"]
 
 [dependencies]
+ahash = { workspace = true }
 bytemuck = { workspace = true }
 glam = { workspace = true }
 interoptopus = { workspace = true }
@@ -21,7 +22,7 @@ kelp-2d-imgui-wgpu = { path = "../kelp-2d-imgui-wgpu" }
 naga = { workspace = true }
 pollster = { workspace = true }
 raw-window-handle = { workspace = true }
-rustc-hash = { workspace = true }
+thiserror = { workspace = true }
 wgpu = { workspace = true }
 
 [dev-dependencies]
