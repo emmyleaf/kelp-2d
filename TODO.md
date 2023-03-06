@@ -19,5 +19,6 @@
 - [ ] Allow multiple world transforms per instance from API - condense to one matrix for GPU still of course
 - [@] Add whole batches of instances at a time - Lutra will ideally dump a whole buffers worth once it fills up
 - [@] Use `interoptopus` crate to generate C# bindings!
-- [ ] Fix texture handling by caching them and returning references instead of owning and sending boxed pointers
-- [@] Add error handling to the rust API
+- [x] Fix texture handling by caching them and returning ids instead of owning and sending boxed pointers
+- [x] Add error handling to the rust API
+- [ ] Remove the FFIResult type - it doesn't generate how i want it to - perhaps `MaybeUninit` can give us out params?

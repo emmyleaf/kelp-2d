@@ -10,7 +10,7 @@ use winit::{
 async fn run(event_loop: EventLoop<()>, window: Window) {
     let size = window.inner_size();
 
-    let mut kelp = Kelp::new(&window, size.width, size.height, None);
+    let mut kelp = Kelp::new(&window, size.width, size.height, None).unwrap();
 
     // Set initial camera matrix
     let mut camera =
@@ -74,8 +74,8 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                 camera.scale += 0.001;
                 kelp.begin_frame().unwrap();
                 let mut pass = kelp.begin_render_pass(&camera, clear).unwrap();
-                pass.add_instances(&petal_texture, false, BlendMode::ALPHA, instance_data.as_slice());
-                pass.add_instances(&petal_texture, true, BlendMode::ALPHA, instance_data_2.as_slice());
+                pass.add_instances(petal_texture, false, BlendMode::ALPHA, instance_data.as_slice()).unwrap();
+                pass.add_instances(petal_texture, true, BlendMode::ALPHA, instance_data_2.as_slice()).unwrap();
                 kelp.submit_render_pass(pass).unwrap();
                 kelp.draw_frame().unwrap();
             }

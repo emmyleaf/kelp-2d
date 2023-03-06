@@ -1,8 +1,5 @@
-use interoptopus::{
-    ffi_type,
-    patterns::{option::FFIOption, slice::FFISlice},
-};
-use kelp_2d::{BlendMode, InstanceData, KelpError, KelpTexture};
+use interoptopus::{ffi_type, patterns::slice::FFISlice};
+use kelp_2d::{BlendMode, InstanceData, KelpError, KelpTextureId};
 
 /// The main return type for unit returning functions with error handling
 #[ffi_type(patterns(ffi_error))]
@@ -14,6 +11,11 @@ pub enum FFIError {
     // Kelp API specific errors
     NoCurrentFrame = 100,
     SwapchainError = 101,
+    InvalidTextureId = 102,
+    InvalidBindGroupId = 103,
+    InvalidPipelineId = 104,
+    NoAdapter = 105,
+    NoDevice = 106,
     // Kelp FFI specific errors
     KelpAlreadyInitialised = 200,
     KelpNotInitialised = 201,
@@ -36,6 +38,11 @@ impl From<KelpError> for FFIError {
         match error {
             KelpError::NoCurrentFrame => FFIError::NoCurrentFrame,
             KelpError::SwapchainError(_) => FFIError::SwapchainError,
+            KelpError::InvalidTextureId => FFIError::InvalidTextureId,
+            KelpError::InvalidBindGroupId => FFIError::InvalidBindGroupId,
+            KelpError::InvalidPipelineId => FFIError::InvalidPipelineId,
+            KelpError::NoAdapter => FFIError::NoAdapter,
+            KelpError::NoDevice(_) => FFIError::NoDevice,
         }
     }
 }
@@ -43,24 +50,25 @@ impl From<KelpError> for FFIError {
 /// The main return type for for type returning functions with error handling
 #[ffi_type]
 #[repr(C)]
-pub struct FFIResult<T> {
-    value: FFIOption<T>,
+pub struct FFIResult<T: 'static> {
+    value: *mut T,
     error: FFIError,
 }
 
 impl<T> FFIResult<T> {
-    pub const fn ok(value: T) -> Self {
-        Self { value: FFIOption::some(value), error: FFIError::Success }
+    pub fn ok(value: T) -> Self {
+        Self {
+            value: Box::into_raw(Box::new(value)),
+            error: FFIError::Success,
+        }
+    }
+
+    pub const fn error(error: FFIError) -> Self {
+        Self { value: std::ptr::null_mut(), error }
     }
 }
 
-impl<T: Default> FFIResult<T> {
-    pub fn error(error: FFIError) -> Self {
-        Self { value: FFIOption::none(), error }
-    }
-}
-
-impl<T: Default> From<Result<T, KelpError>> for FFIResult<T> {
+impl<T> From<Result<T, KelpError>> for FFIResult<T> {
     fn from(result: Result<T, KelpError>) -> Self {
         match result {
             Ok(value) => Self::ok(value),
@@ -73,7 +81,7 @@ impl<T: Default> From<Result<T, KelpError>> for FFIResult<T> {
 #[ffi_type]
 #[repr(C)]
 pub struct InstanceBatch<'a> {
-    pub texture: &'a KelpTexture,
+    pub texture: KelpTextureId,
     pub smooth: bool,
     pub blend_mode: BlendMode,
     pub instances: FFISlice<'a, InstanceData>,

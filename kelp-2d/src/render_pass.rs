@@ -1,5 +1,6 @@
 use crate::{
-    BlendMode, InstanceData, InstanceGPU, KelpColor, KelpResources, KelpTexture, PipelineId, TextureBindGroupId,
+    BlendMode, InstanceData, InstanceGPU, KelpColor, KelpError, KelpResources, KelpTextureId, PipelineId,
+    TextureBindGroupId,
 };
 use glam::Mat4;
 use std::{ops::Range, rc::Rc};
@@ -44,34 +45,36 @@ impl KelpRenderPass {
 
     pub fn add_instances(
         &mut self,
-        texture: &KelpTexture,
+        texture: KelpTextureId,
         smooth: bool,
         blend_mode: BlendMode,
         instance_data: &[InstanceData],
-    ) {
+    ) -> Result<(), KelpError> {
         let prev_count = self.instances.len() as u32;
         let range = (prev_count)..(prev_count + instance_data.len() as u32);
 
-        let mut texture_bind_group_cache = self.resources.texture_bind_group_cache.borrow_mut();
-        let bind_group_id = texture_bind_group_cache.get_valid_bind_group_id(&self.resources.device, texture, smooth);
+        let mut texture_bind_group_cache = self.resources.texture_cache.borrow_mut();
+        let bind_group_id =
+            texture_bind_group_cache.get_valid_bind_group_id(&self.resources.device, texture, smooth)?;
 
         let mut pipeline_cache = self.resources.pipeline_cache.borrow_mut();
         let pipeline_id = pipeline_cache.get_valid_pipeline_id(&self.resources.device, None, blend_mode);
 
         self.instances.extend(instance_data.iter().map(InstanceGPU::from));
         self.groups.push(InstanceGroup { range, bind_group_id, pipeline_id });
+        Ok(())
     }
 
-    pub(crate) fn finish(self, encoder: &mut CommandEncoder) {
+    pub(crate) fn finish(self, encoder: &mut CommandEncoder) -> Result<(), KelpError> {
         if self.groups.is_empty() || self.instances.is_empty() {
-            return;
+            return Ok(());
         }
 
         let instances_bytes = bytemuck::cast_slice(self.instances.as_slice());
         self.resources.queue.write_buffer(&self.resources.instance_buffer, 0, instances_bytes);
 
         {
-            let texture_bind_group_cache = self.resources.texture_bind_group_cache.borrow();
+            let texture_bind_group_cache = self.resources.texture_cache.borrow();
             let pipeline_cache = self.resources.pipeline_cache.borrow();
 
             let load = self.clear.map_or(LoadOp::Load, |c| {
@@ -88,7 +91,7 @@ impl KelpRenderPass {
 
             // Always set the pipeline first time around
             let mut current_pipeline_id = self.groups[0].pipeline_id;
-            wgpu_pass.set_pipeline(pipeline_cache.get_pipeline(&current_pipeline_id));
+            wgpu_pass.set_pipeline(pipeline_cache.get_pipeline(&current_pipeline_id)?);
             wgpu_pass.set_push_constants(ShaderStages::VERTEX, 0, bytemuck::cast_slice(self.camera.as_ref()));
             wgpu_pass.set_vertex_buffer(0, self.resources.vertex_buffer.slice(..));
             wgpu_pass.set_bind_group(0, &self.resources.vertex_bind_group, &[]);
@@ -97,16 +100,17 @@ impl KelpRenderPass {
                 // Only set if the pipeline id changes
                 if current_pipeline_id != group.pipeline_id {
                     current_pipeline_id = group.pipeline_id;
-                    wgpu_pass.set_pipeline(pipeline_cache.get_pipeline(&current_pipeline_id));
+                    wgpu_pass.set_pipeline(pipeline_cache.get_pipeline(&current_pipeline_id)?);
                     wgpu_pass.set_push_constants(ShaderStages::VERTEX, 0, bytemuck::cast_slice(self.camera.as_ref()));
                     wgpu_pass.set_vertex_buffer(0, self.resources.vertex_buffer.slice(..));
                     wgpu_pass.set_bind_group(0, &self.resources.vertex_bind_group, &[]);
                 }
 
-                let bind_group_1 = texture_bind_group_cache.get_bind_group(&group.bind_group_id);
+                let bind_group_1 = texture_bind_group_cache.get_bind_group(&group.bind_group_id)?;
                 wgpu_pass.set_bind_group(1, bind_group_1, &[]);
                 wgpu_pass.draw(0..4, group.range);
             }
         }
+        Ok(())
     }
 }

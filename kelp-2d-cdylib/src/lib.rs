@@ -6,24 +6,27 @@ mod types;
 mod window;
 
 use interoptopus::{ffi_function, patterns::slice::FFISlice};
-use kelp_2d::{Camera, ImGuiConfig, Kelp, KelpColor, KelpError, KelpTexture};
-use std::sync::{Mutex, OnceLock};
+use kelp_2d::{Camera, ImGuiConfig, Kelp, KelpColor, KelpError, KelpTextureId};
+use std::sync::OnceLock;
 use types::{FFIError, FFIResult, InstanceBatch};
 use window::Window;
 
 static mut KELP: OnceLock<Kelp> = OnceLock::new();
 
-const KELP_NOT_FOUND: &str = "Cannot call any functions before initialise or after uninitialise.";
-
 #[ffi_function]
 #[no_mangle]
 pub unsafe extern "C" fn initialise(window: Window /*, imgui_config: Option<&mut ImGuiConfig>*/) -> FFIError {
-    match KELP.set(Kelp::new(&window, window.width, window.height, None)) {
-        Ok(_) => {
-            env_logger::init();
+    // Why is `OnceLock::is_initialized()` private..?
+    if KELP.get().is_some() {
+        return FFIError::KelpAlreadyInitialised;
+    }
+    _ = env_logger::try_init();
+    match Kelp::new(&window, window.width, window.height, None) {
+        Ok(kelp) => {
+            _ = KELP.set(kelp);
             FFIError::Success
         }
-        Err(_) => FFIError::KelpAlreadyInitialised,
+        Err(err) => err.into(),
     }
 }
 
@@ -49,7 +52,7 @@ pub unsafe extern "C" fn draw_frame() -> FFIError {
 
 #[ffi_function]
 #[no_mangle]
-pub unsafe extern "C" fn render_pass(
+pub unsafe extern "C" fn submit_render_pass(
     camera: &Camera,
     clear: Option<&KelpColor>,
     batches: FFISlice<InstanceBatch>,
@@ -57,7 +60,7 @@ pub unsafe extern "C" fn render_pass(
     match KELP.get_mut().map(|kelp| {
         let mut pass = kelp.begin_render_pass(camera, clear.copied())?;
         for batch in batches.as_slice() {
-            pass.add_instances(batch.texture, batch.smooth, batch.blend_mode, batch.instances.as_slice());
+            pass.add_instances(batch.texture, batch.smooth, batch.blend_mode, batch.instances.as_slice())?;
         }
         kelp.submit_render_pass(pass)?;
         Ok::<(), KelpError>(())
@@ -68,38 +71,33 @@ pub unsafe extern "C" fn render_pass(
     }
 }
 
-// TODO: gotta fix this with texture caching
-// #[ffi_function]
-// #[no_mangle]
-// pub unsafe extern "C" fn create_texture_with_data(
-//     width: u32,
-//     height: u32,
-//     data: FFISlice<u8>,
-// ) -> FFIResult<KelpTexture> {
-//     let kelp = KELP.get().expect(KELP_NOT_FOUND);
-//     let kelp_texture = kelp.create_texture_with_data(width, height, data.as_slice());
-//     FFIResult::ok(kelp_texture)
-// }
-
 #[ffi_function]
 #[no_mangle]
-pub unsafe extern "C" fn free_texture(texture_ptr: *mut KelpTexture) -> FFIError {
-    // TODO: can we make this safer with interoptopus as well?
-    _ = Box::from_raw(texture_ptr);
-    FFIError::Success
+pub unsafe extern "C" fn create_texture_with_data(
+    width: u32,
+    height: u32,
+    data: FFISlice<u8>,
+) -> FFIResult<KelpTextureId> {
+    match KELP.get_mut().map(|kelp| kelp.create_texture_with_data(width, height, data.as_slice())) {
+        Some(value) => FFIResult::ok(value),
+        None => FFIResult::error(FFIError::KelpNotInitialised),
+    }
 }
 
 #[ffi_function]
 #[no_mangle]
 pub unsafe extern "C" fn set_surface_size(width: u32, height: u32) -> FFIError {
-    let kelp = KELP.get_mut().expect(KELP_NOT_FOUND);
-    kelp.set_surface_size(width, height);
-    FFIError::Success
+    match KELP.get_mut().map(|kelp| kelp.set_surface_size(width, height)) {
+        Some(_) => FFIError::Success,
+        None => FFIError::KelpNotInitialised,
+    }
 }
 
 #[ffi_function]
 #[no_mangle]
 pub unsafe extern "C" fn uninitialise() -> FFIError {
-    _ = KELP.take();
-    FFIError::Success
+    match KELP.take() {
+        Some(_) => FFIError::Success,
+        None => FFIError::KelpNotInitialised,
+    }
 }

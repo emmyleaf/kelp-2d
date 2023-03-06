@@ -3,7 +3,7 @@ use glam::{Mat4, Vec4};
 use interoptopus::ffi_type;
 use kelp_2d_imgui_wgpu::FontTexture;
 use thiserror::Error;
-use wgpu::{CommandEncoder, SurfaceTexture, Texture};
+use wgpu::{CommandEncoder, SurfaceTexture};
 
 #[ffi_type]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -24,11 +24,9 @@ pub struct KelpColor {
 }
 
 #[ffi_type(opaque)]
-#[derive(Debug)]
-#[repr(C)]
-pub struct KelpTexture {
-    pub(crate) wgpu_texture: Texture,
-}
+#[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
+#[repr(transparent)]
+pub struct KelpTextureId(pub(crate) wgpu::Id);
 
 #[derive(Debug)]
 pub struct KelpFrame {
@@ -87,6 +85,16 @@ pub enum KelpError {
     NoCurrentFrame,
     #[error("Failed to acquire next swap chain texture")]
     SwapchainError(#[from] wgpu::SurfaceError),
+    #[error("Invalid texture id")]
+    InvalidTextureId,
+    #[error("Invalid bind group id")]
+    InvalidBindGroupId,
+    #[error("Invalid pipeline id")]
+    InvalidPipelineId,
+    #[error("Failed to find an appropriate adapter")]
+    NoAdapter,
+    #[error("Failed to find an appropriate device")]
+    NoDevice(#[from] wgpu::RequestDeviceError),
 }
 
 impl Default for Transform {

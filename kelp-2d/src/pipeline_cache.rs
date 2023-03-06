@@ -1,4 +1,4 @@
-use crate::BlendMode;
+use crate::{BlendMode, KelpError};
 use ahash::AHashMap;
 use std::rc::Rc;
 use wgpu::{
@@ -51,8 +51,8 @@ impl PipelineCache {
         }
     }
 
-    pub fn get_pipeline(&self, id: &PipelineId) -> &RenderPipeline {
-        self.cache.get(id).expect("Invalid pipeline id.")
+    pub fn get_pipeline(&self, id: &PipelineId) -> Result<&RenderPipeline, KelpError> {
+        self.cache.get(id).ok_or(KelpError::InvalidPipelineId)
     }
 
     #[allow(clippy::map_entry)]
