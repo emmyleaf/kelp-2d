@@ -21,4 +21,5 @@
 - [@] Use `interoptopus` crate to generate C# bindings!
 - [x] Fix texture handling by caching them and returning ids instead of owning and sending boxed pointers
 - [x] Add error handling to the rust API
-- [ ] Remove the FFIResult type - it doesn't generate how i want it to - perhaps `MaybeUninit` can give us out params?
+- [x] Remove the FFIResult type - custom CTypeInfo impls can help interoptopus generate correct out params
+- [ ] Removing textures: intend for removal in batches - invalidate bind group cache to be rebuilt on next use?

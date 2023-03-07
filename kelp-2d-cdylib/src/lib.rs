@@ -3,19 +3,19 @@
 
 mod generate;
 mod types;
-mod window;
+mod window_info;
 
 use interoptopus::{ffi_function, patterns::slice::FFISlice};
 use kelp_2d::{Camera, ImGuiConfig, Kelp, KelpColor, KelpError, KelpTextureId};
 use std::sync::OnceLock;
-use types::{FFIError, FFIResult, InstanceBatch};
-use window::Window;
+use types::{FFIError, InstanceBatch};
+use window_info::WindowInfo;
 
 static mut KELP: OnceLock<Kelp> = OnceLock::new();
 
 #[ffi_function]
 #[no_mangle]
-pub unsafe extern "C" fn initialise(window: Window /*, imgui_config: Option<&mut ImGuiConfig>*/) -> FFIError {
+pub unsafe extern "C" fn initialise(window: WindowInfo /*, imgui_config: Option<&mut ImGuiConfig>*/) -> FFIError {
     // Why is `OnceLock::is_initialized()` private..?
     if KELP.get().is_some() {
         return FFIError::KelpAlreadyInitialised;
@@ -53,12 +53,12 @@ pub unsafe extern "C" fn draw_frame() -> FFIError {
 #[ffi_function]
 #[no_mangle]
 pub unsafe extern "C" fn submit_render_pass(
-    camera: &Camera,
+    camera: Camera,
     clear: Option<&KelpColor>,
     batches: FFISlice<InstanceBatch>,
 ) -> FFIError {
     match KELP.get_mut().map(|kelp| {
-        let mut pass = kelp.begin_render_pass(camera, clear.copied())?;
+        let mut pass = kelp.begin_render_pass(&camera, clear.copied())?;
         for batch in batches.as_slice() {
             pass.add_instances(batch.texture, batch.smooth, batch.blend_mode, batch.instances.as_slice())?;
         }
@@ -77,10 +77,14 @@ pub unsafe extern "C" fn create_texture_with_data(
     width: u32,
     height: u32,
     data: FFISlice<u8>,
-) -> FFIResult<KelpTextureId> {
+    out_id: &mut KelpTextureId,
+) -> FFIError {
     match KELP.get_mut().map(|kelp| kelp.create_texture_with_data(width, height, data.as_slice())) {
-        Some(value) => FFIResult::ok(value),
-        None => FFIResult::error(FFIError::KelpNotInitialised),
+        Some(value) => {
+            *out_id = value;
+            FFIError::Success
+        }
+        None => FFIError::KelpNotInitialised,
     }
 }
 

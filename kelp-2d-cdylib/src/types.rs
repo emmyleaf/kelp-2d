@@ -47,36 +47,6 @@ impl From<KelpError> for FFIError {
     }
 }
 
-/// The main return type for for type returning functions with error handling
-#[ffi_type]
-#[repr(C)]
-pub struct FFIResult<T: 'static> {
-    value: *mut T,
-    error: FFIError,
-}
-
-impl<T> FFIResult<T> {
-    pub fn ok(value: T) -> Self {
-        Self {
-            value: Box::into_raw(Box::new(value)),
-            error: FFIError::Success,
-        }
-    }
-
-    pub const fn error(error: FFIError) -> Self {
-        Self { value: std::ptr::null_mut(), error }
-    }
-}
-
-impl<T> From<Result<T, KelpError>> for FFIResult<T> {
-    fn from(result: Result<T, KelpError>) -> Self {
-        match result {
-            Ok(value) => Self::ok(value),
-            Err(error) => Self::error(error.into()),
-        }
-    }
-}
-
 /// A batch of instances to be added to a render pass
 #[ffi_type]
 #[repr(C)]

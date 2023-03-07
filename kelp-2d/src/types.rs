@@ -1,6 +1,12 @@
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec4};
-use interoptopus::ffi_type;
+use interoptopus::{
+    ffi_type,
+    lang::{
+        c::{CType, PrimitiveType},
+        rust::CTypeInfo,
+    },
+};
 use kelp_2d_imgui_wgpu::FontTexture;
 use thiserror::Error;
 use wgpu::{CommandEncoder, SurfaceTexture};
@@ -23,10 +29,15 @@ pub struct KelpColor {
     pub a: f32,
 }
 
-#[ffi_type(opaque)]
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
 #[repr(transparent)]
 pub struct KelpTextureId(pub(crate) wgpu::Id);
+
+unsafe impl CTypeInfo for KelpTextureId {
+    fn type_info() -> CType {
+        CType::Primitive(PrimitiveType::U64)
+    }
+}
 
 #[derive(Debug)]
 pub struct KelpFrame {

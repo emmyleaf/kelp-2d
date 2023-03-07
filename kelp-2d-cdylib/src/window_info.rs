@@ -7,7 +7,7 @@ use raw_window_handle::{
 };
 
 #[ffi_type]
-#[repr(u8)]
+#[repr(C)]
 #[derive(Debug)]
 pub enum WindowType {
     Win32 = 0,
@@ -19,7 +19,7 @@ pub enum WindowType {
 #[ffi_type]
 #[repr(C)]
 #[derive(Debug)]
-pub struct Window {
+pub struct WindowInfo {
     pub window_type: WindowType,
     pub window_handle: *mut c_void,
     pub second_handle: *mut c_void,
@@ -27,7 +27,7 @@ pub struct Window {
     pub height: u32,
 }
 
-unsafe impl HasRawWindowHandle for Window {
+unsafe impl HasRawWindowHandle for WindowInfo {
     fn raw_window_handle(&self) -> RawWindowHandle {
         match self.window_type {
             WindowType::Win32 => {
@@ -56,7 +56,7 @@ unsafe impl HasRawWindowHandle for Window {
     }
 }
 
-unsafe impl HasRawDisplayHandle for Window {
+unsafe impl HasRawDisplayHandle for WindowInfo {
     fn raw_display_handle(&self) -> RawDisplayHandle {
         match self.window_type {
             WindowType::Win32 => RawDisplayHandle::Windows(WindowsDisplayHandle::empty()),
