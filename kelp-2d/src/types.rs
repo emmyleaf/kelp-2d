@@ -1,5 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec4};
+use indexmap::IndexMap;
 use interoptopus::{
     ffi_type,
     lang::{
@@ -9,7 +10,9 @@ use interoptopus::{
 };
 use kelp_2d_imgui_wgpu::FontTexture;
 use thiserror::Error;
-use wgpu::{CommandEncoder, SurfaceTexture};
+use wgpu::{Color, CommandEncoder, SurfaceTexture};
+
+pub type KelpMap<K, V> = IndexMap<K, V, ahash::RandomState>;
 
 #[ffi_type]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -79,6 +82,17 @@ pub struct InstanceData {
     pub world: Transform,
 }
 
+/// A batch of instances to be added to a render pass
+#[ffi_type]
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct InstanceBatch {
+    pub texture: KelpTextureId,
+    pub smooth: bool,
+    pub blend_mode: BlendMode,
+    pub instance_count: u32,
+}
+
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct InstanceGPU {
@@ -106,6 +120,12 @@ pub enum KelpError {
     NoAdapter,
     #[error("Failed to find an appropriate device")]
     NoDevice(#[from] wgpu::RequestDeviceError),
+}
+
+impl From<&KelpColor> for Color {
+    fn from(c: &KelpColor) -> Self {
+        Self { r: c.r as f64, g: c.g as f64, b: c.b as f64, a: c.a as f64 }
+    }
 }
 
 impl Default for Transform {

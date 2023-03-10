@@ -1,4 +1,4 @@
-use kelp_2d::{BlendMode, Camera, InstanceData, Kelp, KelpColor, Transform};
+use kelp_2d::{BlendMode, Camera, InstanceData, Kelp, KelpColor, RenderPassData, Transform};
 use rand::Rng;
 use std::{fs::File, path::Path};
 use winit::{
@@ -15,7 +15,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     // Set initial camera matrix
     let mut camera =
         Camera::new(size.width as f32 / 2.0, size.height as f32 / 2.0, size.width as f32, size.height as f32, 0.0, 1.0);
-    let clear = Some(KelpColor { r: 0.5, g: 0.0, b: 0.5, a: 1.0 });
+    let clear = Some(&KelpColor { r: 0.5, g: 0.0, b: 0.5, a: 1.0 });
 
     // Create petal texture & bind group
     let decoder = png::Decoder::new(File::open(Path::new("./kelp-2d/examples/petal.png")).unwrap());
@@ -72,10 +72,10 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
             Event::MainEventsCleared => {
                 camera.scale += 0.001;
                 kelp.begin_frame().unwrap();
-                let mut pass = kelp.begin_render_pass(&camera, clear).unwrap();
-                pass.add_instances(petal_texture, true, BlendMode::ALPHA, instance_data.as_slice()).unwrap();
-                pass.add_instances(petal_texture, true, BlendMode::ADDITIVE, instance_data_2.as_slice()).unwrap();
-                kelp.submit_render_pass(pass).unwrap();
+                let pass = RenderPassData::new(&camera, clear)
+                    .add_instances(petal_texture, true, BlendMode::ALPHA, instance_data.as_slice())
+                    .add_instances(petal_texture, true, BlendMode::ADDITIVE, instance_data_2.as_slice());
+                kelp.render_pass(pass).unwrap();
                 kelp.draw_frame().unwrap();
             }
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => *control_flow = ControlFlow::Exit,

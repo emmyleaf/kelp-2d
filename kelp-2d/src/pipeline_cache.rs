@@ -1,5 +1,4 @@
-use crate::{BlendMode, KelpError};
-use ahash::AHashMap;
+use crate::{BlendMode, KelpError, KelpMap};
 use std::rc::Rc;
 use wgpu::{
     BindGroupLayout, BlendComponent, BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrites, Device,
@@ -28,7 +27,7 @@ pub(crate) struct PipelineId {
 
 #[derive(Debug)]
 pub(crate) struct PipelineCache {
-    cache: AHashMap<PipelineId, RenderPipeline>,
+    cache: KelpMap<PipelineId, RenderPipeline>,
     default_vertex_shader: ShaderModule,
     default_fragment_shader: ShaderModule,
     vertex_bind_layout: BindGroupLayout,
@@ -51,27 +50,27 @@ impl PipelineCache {
         }
     }
 
-    pub fn get_pipeline(&self, id: &PipelineId) -> Result<&RenderPipeline, KelpError> {
-        self.cache.get(id).ok_or(KelpError::InvalidPipelineId)
-    }
-
-    #[allow(clippy::map_entry)]
-    pub fn get_valid_pipeline_id(
+    pub fn ensure_pipeline(
         &mut self,
         device: &Device,
         shader: Option<&ShaderModule>,
         blend_mode: BlendMode,
-    ) -> PipelineId {
+    ) -> Result<(), KelpError> {
         let id = Self::to_pipeline_id(shader, blend_mode);
         if !self.cache.contains_key(&id) {
             let pipeline = self.create_pipeline(device, shader, blend_mode);
             self.cache.insert(id, pipeline);
         }
-        id
+        Ok(())
     }
 
-    pub fn remove_pipeline(&mut self, shader: Option<&ShaderModule>, blend_mode: BlendMode) {
-        _ = self.cache.remove(&Self::to_pipeline_id(shader, blend_mode))
+    pub fn get_pipeline_index(&self, shader: Option<&ShaderModule>, blend_mode: BlendMode) -> Result<usize, KelpError> {
+        let id = Self::to_pipeline_id(shader, blend_mode);
+        self.cache.get_index_of(&id).ok_or(KelpError::InvalidPipelineId)
+    }
+
+    pub fn get_pipeline(&self, index: usize) -> Result<&RenderPipeline, KelpError> {
+        self.cache.get_index(index).map(|t| t.1).ok_or(KelpError::InvalidPipelineId)
     }
 
     /* private */

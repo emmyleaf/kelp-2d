@@ -1,5 +1,4 @@
-use crate::{KelpError, KelpTextureId};
-use ahash::AHashMap;
+use crate::{KelpError, KelpMap, KelpTextureId};
 use std::rc::Rc;
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindingResource, Device, Sampler, Texture,
@@ -14,8 +13,8 @@ pub(crate) struct TextureBindGroupId {
 
 #[derive(Debug)]
 pub(crate) struct TextureCache {
-    texture_cache: AHashMap<KelpTextureId, Texture>,
-    bind_group_cache: AHashMap<TextureBindGroupId, BindGroup>,
+    texture_cache: KelpMap<KelpTextureId, Texture>,
+    bind_group_cache: KelpMap<TextureBindGroupId, BindGroup>,
     texture_bind_layout: Rc<BindGroupLayout>,
     linear_sampler: Sampler,
     point_sampler: Sampler,
@@ -24,16 +23,12 @@ pub(crate) struct TextureCache {
 impl TextureCache {
     pub fn new(texture_bind_layout: Rc<BindGroupLayout>, linear_sampler: Sampler, point_sampler: Sampler) -> Self {
         Self {
-            texture_cache: AHashMap::new(),
-            bind_group_cache: AHashMap::new(),
+            texture_cache: Default::default(),
+            bind_group_cache: Default::default(),
             texture_bind_layout,
             linear_sampler,
             point_sampler,
         }
-    }
-
-    pub fn get_texture(&self, id: KelpTextureId) -> Result<&Texture, KelpError> {
-        self.texture_cache.get(&id).ok_or(KelpError::InvalidTextureId)
     }
 
     pub fn insert_texture(&mut self, texture: Texture) -> KelpTextureId {
@@ -42,33 +37,34 @@ impl TextureCache {
         id
     }
 
-    pub fn get_bind_group(&self, id: &TextureBindGroupId) -> Result<&BindGroup, KelpError> {
-        self.bind_group_cache.get(id).ok_or(KelpError::InvalidBindGroupId)
-    }
-
-    #[allow(clippy::map_entry)]
-    pub fn get_valid_bind_group_id(
+    pub fn ensure_bind_group(
         &mut self,
         device: &Device,
         texture_id: KelpTextureId,
         smooth: bool,
-    ) -> Result<TextureBindGroupId, KelpError> {
+    ) -> Result<(), KelpError> {
         let id = TextureBindGroupId { texture_id, smooth };
         if !self.bind_group_cache.contains_key(&id) {
             let bind_group = self.create_texture_bind_group(device, texture_id, smooth)?;
             self.bind_group_cache.insert(id, bind_group);
         }
-        Ok(id)
+        Ok(())
+    }
+
+    pub fn get_bind_group(&self, texture_id: KelpTextureId, smooth: bool) -> Result<&BindGroup, KelpError> {
+        let id = TextureBindGroupId { texture_id, smooth };
+        self.bind_group_cache.get(&id).ok_or(KelpError::InvalidBindGroupId)
     }
 
     /* private */
     fn create_texture_bind_group(
-        &mut self,
+        &self,
         device: &Device,
         texture_id: KelpTextureId,
         smooth: bool,
     ) -> Result<BindGroup, KelpError> {
-        let texture = self.get_texture(texture_id)?;
+        let texture = self.texture_cache.get(&texture_id).ok_or(KelpError::InvalidTextureId)?;
+        let texture_view = texture.create_view(&TextureViewDescriptor::default());
         let sampler = if smooth {
             &self.linear_sampler
         } else {
@@ -80,7 +76,7 @@ impl TextureCache {
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(&texture.create_view(&TextureViewDescriptor::default())),
+                    resource: BindingResource::TextureView(&texture_view),
                 },
                 BindGroupEntry { binding: 1, resource: BindingResource::Sampler(sampler) },
             ],

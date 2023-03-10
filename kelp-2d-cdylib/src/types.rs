@@ -1,5 +1,5 @@
-use interoptopus::{ffi_type, patterns::slice::FFISlice};
-use kelp_2d::{BlendMode, InstanceData, KelpError, KelpTextureId};
+use interoptopus::ffi_type;
+use kelp_2d::KelpError;
 
 /// The main return type for unit returning functions with error handling
 #[ffi_type(patterns(ffi_error))]
@@ -45,14 +45,4 @@ impl From<KelpError> for FFIError {
             KelpError::NoDevice(_) => FFIError::NoDevice,
         }
     }
-}
-
-/// A batch of instances to be added to a render pass
-#[ffi_type]
-#[repr(C)]
-pub struct InstanceBatch<'a> {
-    pub texture: KelpTextureId,
-    pub smooth: bool,
-    pub blend_mode: BlendMode,
-    pub instances: FFISlice<'a, InstanceData>,
 }

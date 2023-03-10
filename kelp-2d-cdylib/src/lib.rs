@@ -6,9 +6,9 @@ mod types;
 mod window_info;
 
 use interoptopus::{ffi_function, patterns::slice::FFISlice};
-use kelp_2d::{Camera, ImGuiConfig, Kelp, KelpColor, KelpError, KelpTextureId};
+use kelp_2d::{Camera, ImGuiConfig, InstanceBatch, InstanceData, Kelp, KelpColor, KelpTextureId, RenderPassData};
 use std::sync::OnceLock;
-use types::{FFIError, InstanceBatch};
+use types::FFIError;
 use window_info::WindowInfo;
 
 static mut KELP: OnceLock<Kelp> = OnceLock::new();
@@ -52,18 +52,19 @@ pub unsafe extern "C" fn draw_frame() -> FFIError {
 
 #[ffi_function]
 #[no_mangle]
-pub unsafe extern "C" fn submit_render_pass(
+pub unsafe extern "C" fn render_pass(
     camera: Camera,
     clear: Option<&KelpColor>,
+    instances: FFISlice<InstanceData>,
     batches: FFISlice<InstanceBatch>,
 ) -> FFIError {
     match KELP.get_mut().map(|kelp| {
-        let mut pass = kelp.begin_render_pass(&camera, clear.copied())?;
-        for batch in batches.as_slice() {
-            pass.add_instances(batch.texture, batch.smooth, batch.blend_mode, batch.instances.as_slice())?;
-        }
-        kelp.submit_render_pass(pass)?;
-        Ok::<(), KelpError>(())
+        kelp.render_pass(RenderPassData {
+            camera: (&camera).into(),
+            clear: clear.map(Into::into),
+            instances: instances.iter().map(Into::into).collect(),
+            batches: batches.to_vec(),
+        })
     }) {
         Some(Ok(_)) => FFIError::Success,
         Some(Err(err)) => err.into(),

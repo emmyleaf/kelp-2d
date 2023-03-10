@@ -9,7 +9,7 @@ pub mod csharp {
     pub fn ffi_inventory() -> Inventory {
         InventoryBuilder::new()
             .register(function!(initialise))
-            .register(function!(submit_render_pass))
+            .register(function!(render_pass))
             .register(function!(create_texture_with_data))
             // .register(function!(free_texture))
             .register(function!(set_surface_size))

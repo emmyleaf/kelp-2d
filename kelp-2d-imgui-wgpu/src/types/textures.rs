@@ -21,6 +21,7 @@ pub struct FontTexture {
 #[repr(transparent)]
 pub struct TextureId(usize);
 
+// TODO: indexmap here?
 #[derive(Debug, Default)]
 pub struct Textures<T> {
     textures: AHashMap<usize, T>,

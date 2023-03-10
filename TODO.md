@@ -17,9 +17,10 @@
 - [@] Imgui rendering! (based on `imgui-wgpu`)
     - [ ] update C# ffi and make sure we can shunt ImGui draw data from Lutra
 - [ ] Allow multiple world transforms per instance from API - condense to one matrix for GPU still of course
-- [@] Add whole batches of instances at a time - Lutra will ideally dump a whole buffers worth once it fills up
-- [@] Use `interoptopus` crate to generate C# bindings!
+- [x] Add whole batches of instances at a time - Lutra will ideally dump a whole buffers worth once it fills up
+- [x] Use `interoptopus` crate to generate C# bindings!
 - [x] Fix texture handling by caching them and returning ids instead of owning and sending boxed pointers
 - [x] Add error handling to the rust API
 - [x] Remove the FFIResult type - custom CTypeInfo impls can help interoptopus generate correct out params
 - [ ] Removing textures: intend for removal in batches - invalidate bind group cache to be rebuilt on next use?
+- [x] Data-oriented inputs: render data contains an array of instances and and array of batches
