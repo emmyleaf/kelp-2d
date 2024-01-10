@@ -1,4 +1,4 @@
-use crate::{ImGuiConfig, KelpError, KelpFrame, KelpTextureId, PipelineCache, RenderPassData, TextureCache};
+use crate::{ImGuiConfig, KelpError, KelpTextureId, PerFrame, PipelineCache, RenderBatchData, TextureCache};
 use bytemuck::NoUninit;
 use kelp_2d_imgui_wgpu::ImGuiRenderer;
 use naga::ShaderStage;
@@ -8,8 +8,8 @@ use std::{borrow::Cow, num::NonZeroU64, rc::Rc};
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
-    BindingType, Buffer, BufferBindingType, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Device,
-    DeviceDescriptor, Extent3d, Features, FilterMode, Instance, InstanceDescriptor, Limits, LoadOp, Operations,
+    BindingType, Buffer, BufferBindingType, BufferDescriptor, BufferUsages, CommandBuffer, CommandEncoderDescriptor,
+    Device, DeviceDescriptor, Extent3d, Features, FilterMode, Instance, InstanceDescriptor, Limits, LoadOp, Operations,
     PresentMode, Queue, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, SamplerBindingType,
     SamplerDescriptor, ShaderModuleDescriptor, ShaderSource, ShaderStages, StoreOp, Surface, SurfaceConfiguration,
     TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
@@ -27,7 +27,7 @@ pub struct Kelp {
     pub(crate) texture_cache: TextureCache,
     pub(crate) pipeline_cache: PipelineCache,
     pub(crate) imgui_renderer: Option<ImGuiRenderer>,
-    pub(crate) current_frame: Option<KelpFrame>,
+    pub(crate) per_frame: Option<PerFrame>,
 }
 
 impl Kelp {
@@ -182,37 +182,42 @@ impl Kelp {
             texture_cache,
             pipeline_cache,
             imgui_renderer,
-            current_frame: None,
+            per_frame: None,
         })
     }
 
-    pub fn begin_frame(&mut self) -> Result<(), KelpError> {
-        let surface = self.window_surface.get_current_texture()?;
-        let encoder = self.device.create_command_encoder(&CommandEncoderDescriptor { label: None });
-        self.current_frame = Some(KelpFrame { surface, encoder });
+    pub fn present_frame(&mut self) -> Result<(), KelpError> {
+        if let Some(PerFrame { surface, encoder }) = self.per_frame.take() {
+            self.queue.submit(Some(encoder.finish()));
+            surface.present()
+        } else {
+            self.window_surface.get_current_texture()?.present()
+        }
         Ok(())
     }
 
-    pub fn draw_frame(&mut self) -> Result<(), KelpError> {
-        let frame = self.current_frame.take().ok_or(KelpError::NoCurrentFrame)?;
-        self.queue.submit(Some(frame.encoder.finish()));
-        frame.surface.present();
-        Ok(())
-    }
-
-    pub fn render_pass(&mut self, pass_data: RenderPassData) -> Result<(), KelpError> {
-        let frame = self.current_frame.as_mut().ok_or(KelpError::NoCurrentFrame)?;
-
-        if pass_data.batches.is_empty() || pass_data.instances.is_empty() {
+    pub fn render_batch(&mut self, batch_data: RenderBatchData) -> Result<(), KelpError> {
+        if batch_data.batches.is_empty() || batch_data.instances.is_empty() {
             return Ok(()); // TODO: this could be an error instead
         }
 
-        let camera_bytes = bytemuck::bytes_of(&pass_data.camera);
-        let instances_bytes = bytemuck::cast_slice(&pass_data.instances);
+        // Initialise per frame resources if this is the first pass this frame
+        if self.per_frame.is_none() {
+            let surface = self.window_surface.get_current_texture()?;
+            let encoder_desc = &CommandEncoderDescriptor { label: Some("Kelp Render Commands") };
+            let encoder = self.device.create_command_encoder(encoder_desc);
+            self.per_frame.replace(PerFrame { surface, encoder });
+        }
+        let frame = self.per_frame.as_mut().unwrap();
+
+        let camera_bytes = bytemuck::bytes_of(&batch_data.camera);
+        let instances_bytes = bytemuck::cast_slice(&batch_data.instances);
         self.queue.write_buffer(&self.instance_buffer, 0, instances_bytes);
 
-        let target_view = frame.surface.texture.create_view(&Default::default());
-        let load = pass_data.clear.map_or(LoadOp::Load, LoadOp::Clear);
+        // TODO: different render targets
+        let target_tex = &frame.surface;
+        let target_view = target_tex.texture.create_view(&Default::default());
+        let load = batch_data.clear.map_or(LoadOp::Load, LoadOp::Clear);
         let mut wgpu_pass = frame.encoder.begin_render_pass(&RenderPassDescriptor {
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: &target_view,
@@ -223,14 +228,14 @@ impl Kelp {
         });
 
         // Create any pipelines and bind groups we will need up front
-        for batch in &pass_data.batches {
+        for batch in &batch_data.batches {
             self.pipeline_cache.ensure_pipeline(&self.device, None, batch.blend_mode)?;
             self.texture_cache.ensure_bind_group(&self.device, batch.texture, batch.smooth)?;
         }
 
         let mut pipeline_index = usize::MAX; // starts invalid
         let mut instance_index = 0;
-        for batch in &pass_data.batches {
+        for batch in &batch_data.batches {
             let next_index = self.pipeline_cache.get_pipeline_index(None, batch.blend_mode)?;
 
             if pipeline_index != next_index {

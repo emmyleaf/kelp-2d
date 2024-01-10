@@ -5,12 +5,29 @@ mod types;
 mod window_info;
 
 use interoptopus::{ffi_function, patterns::slice::FFISlice};
-use kelp_2d::{Camera, ImGuiConfig, InstanceBatch, InstanceData, Kelp, KelpColor, KelpTextureId, RenderPassData};
+use kelp_2d::{Camera, ImGuiConfig, InstanceBatch, InstanceData, Kelp, KelpColor, KelpTextureId, RenderBatchData};
 use std::sync::OnceLock;
 use types::FFIError;
 use window_info::WindowInfo;
 
 static mut KELP: OnceLock<Kelp> = OnceLock::new();
+
+#[ffi_function]
+#[no_mangle]
+pub unsafe extern "C" fn create_texture_with_data(
+    width: u32,
+    height: u32,
+    data: FFISlice<u8>,
+    out_id: &mut KelpTextureId,
+) -> FFIError {
+    match KELP.get_mut().map(|kelp| kelp.create_texture_with_data(width, height, data.as_slice())) {
+        Some(value) => {
+            *out_id = value;
+            FFIError::Success
+        }
+        None => FFIError::KelpNotInitialised,
+    }
+}
 
 #[ffi_function]
 #[no_mangle]
@@ -31,8 +48,8 @@ pub unsafe extern "C" fn initialise(window: WindowInfo /*, imgui_config: Option<
 
 #[ffi_function]
 #[no_mangle]
-pub unsafe extern "C" fn begin_frame() -> FFIError {
-    match KELP.get_mut().map(Kelp::begin_frame) {
+pub unsafe extern "C" fn present_frame() -> FFIError {
+    match KELP.get_mut().map(Kelp::present_frame) {
         Some(Ok(_)) => FFIError::Success,
         Some(Err(err)) => err.into(),
         None => FFIError::KelpNotInitialised,
@@ -41,24 +58,14 @@ pub unsafe extern "C" fn begin_frame() -> FFIError {
 
 #[ffi_function]
 #[no_mangle]
-pub unsafe extern "C" fn draw_frame() -> FFIError {
-    match KELP.get_mut().map(Kelp::draw_frame) {
-        Some(Ok(_)) => FFIError::Success,
-        Some(Err(err)) => err.into(),
-        None => FFIError::KelpNotInitialised,
-    }
-}
-
-#[ffi_function]
-#[no_mangle]
-pub unsafe extern "C" fn render_pass(
+pub unsafe extern "C" fn render_batch(
     camera: Camera,
     clear: Option<&KelpColor>,
     instances: FFISlice<InstanceData>,
     batches: FFISlice<InstanceBatch>,
 ) -> FFIError {
     match KELP.get_mut().map(|kelp| {
-        kelp.render_pass(RenderPassData {
+        kelp.render_batch(RenderBatchData {
             camera: (&camera).into(),
             clear: clear.map(Into::into),
             instances: instances.iter().map(Into::into).collect(),
@@ -67,23 +74,6 @@ pub unsafe extern "C" fn render_pass(
     }) {
         Some(Ok(_)) => FFIError::Success,
         Some(Err(err)) => err.into(),
-        None => FFIError::KelpNotInitialised,
-    }
-}
-
-#[ffi_function]
-#[no_mangle]
-pub unsafe extern "C" fn create_texture_with_data(
-    width: u32,
-    height: u32,
-    data: FFISlice<u8>,
-    out_id: &mut KelpTextureId,
-) -> FFIError {
-    match KELP.get_mut().map(|kelp| kelp.create_texture_with_data(width, height, data.as_slice())) {
-        Some(value) => {
-            *out_id = value;
-            FFIError::Success
-        }
         None => FFIError::KelpNotInitialised,
     }
 }

@@ -13,7 +13,6 @@ keywords = ["2d", "gamedev", "graphics", "renderer", "wgpu"]
 categories = ["game-development", "graphics", "rendering", "rendering::engine"]
 
 [workspace.dependencies]
-# using the version of `ahash` already in tree for now
 ahash = "0.8"
 bytemuck = "1"
 env_logger = "0.10"

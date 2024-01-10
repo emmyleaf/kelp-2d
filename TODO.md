@@ -24,3 +24,4 @@
 - [x] Remove the FFIResult type - custom CTypeInfo impls can help interoptopus generate correct out params
 - [ ] Removing textures: intend for removal in batches - invalidate bind group cache to be rebuilt on next use?
 - [x] Data-oriented inputs: render data contains an array of instances and and array of batches
+- [@] API usability improvements

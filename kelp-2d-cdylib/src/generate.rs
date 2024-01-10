@@ -8,10 +8,10 @@ pub mod csharp {
 
     pub fn ffi_inventory() -> Inventory {
         InventoryBuilder::new()
-            .register(function!(initialise))
-            .register(function!(render_pass))
             .register(function!(create_texture_with_data))
-            // .register(function!(free_texture))
+            .register(function!(initialise))
+            .register(function!(present_frame))
+            .register(function!(render_batch))
             .register(function!(set_surface_size))
             .register(function!(uninitialise))
             .inventory()
@@ -31,7 +31,7 @@ pub mod csharp {
 
         Generator::new(config, ffi_inventory())
             .add_overload_writer(DotNet::new())
-            .write_file("bindings/Native.g.cs")
+            .write_file("bindings/Kelp2d.g.cs")
             .unwrap();
     }
 }

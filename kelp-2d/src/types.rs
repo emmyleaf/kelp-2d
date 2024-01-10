@@ -1,12 +1,10 @@
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec4};
 use indexmap::IndexMap;
-use interoptopus::{
-    ffi_type,
-    lang::{
-        c::{CType, PrimitiveType},
-        rust::CTypeInfo,
-    },
+use interoptopus::ffi_type;
+use interoptopus::lang::{
+    c::{CType, PrimitiveType},
+    rust::CTypeInfo,
 };
 use kelp_2d_imgui_wgpu::FontTexture;
 use thiserror::Error;
@@ -43,7 +41,7 @@ unsafe impl CTypeInfo for KelpTextureId {
 }
 
 #[derive(Debug)]
-pub struct KelpFrame {
+pub struct PerFrame {
     pub(crate) surface: SurfaceTexture,
     pub(crate) encoder: CommandEncoder,
 }

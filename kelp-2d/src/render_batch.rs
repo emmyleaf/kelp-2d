@@ -3,14 +3,14 @@ use glam::Mat4;
 use wgpu::Color;
 
 /// The entire data for a submitted render pass
-pub struct RenderPassData {
+pub struct RenderBatchData {
     pub camera: Mat4,
     pub clear: Option<Color>,
     pub instances: Vec<InstanceGPU>,
     pub batches: Vec<InstanceBatch>,
 }
 
-impl RenderPassData {
+impl RenderBatchData {
     pub fn new(camera: &Camera, clear: Option<&KelpColor>) -> Self {
         Self {
             camera: Mat4::from(camera),

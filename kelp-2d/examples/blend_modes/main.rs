@@ -1,4 +1,4 @@
-use kelp_2d::{BlendMode, Camera, InstanceData, Kelp, KelpColor, RenderPassData, Transform};
+use kelp_2d::{BlendMode, Camera, InstanceData, Kelp, KelpColor, RenderBatchData, Transform};
 use rand::Rng;
 use std::{fs::File, path::Path};
 use winit::{
@@ -71,12 +71,11 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                 }
                 Event::WindowEvent { event: WindowEvent::RedrawRequested, .. } => {
                     camera.scale += 0.001;
-                    kelp.begin_frame().unwrap();
-                    let pass = RenderPassData::new(&camera, clear)
+                    let batch = RenderBatchData::new(&camera, clear)
                         .add_instances(petal_texture, true, BlendMode::ALPHA, instance_data.as_slice())
                         .add_instances(petal_texture, true, BlendMode::ADDITIVE, instance_data_2.as_slice());
-                    kelp.render_pass(pass).unwrap();
-                    kelp.draw_frame().unwrap();
+                    kelp.render_batch(batch).unwrap();
+                    kelp.present_frame().unwrap();
                 }
                 Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => event_loop_window_target.exit(),
                 _ => {}
