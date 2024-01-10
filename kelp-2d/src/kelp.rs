@@ -11,9 +11,8 @@ use wgpu::{
     BindingType, Buffer, BufferBindingType, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Device,
     DeviceDescriptor, Extent3d, Features, FilterMode, Instance, InstanceDescriptor, Limits, LoadOp, Operations,
     PresentMode, Queue, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, SamplerBindingType,
-    SamplerDescriptor, ShaderModuleDescriptor, ShaderSource, ShaderStages, Surface, SurfaceConfiguration,
-    TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDescriptor,
-    TextureViewDimension,
+    SamplerDescriptor, ShaderModuleDescriptor, ShaderSource, ShaderStages, StoreOp, Surface, SurfaceConfiguration,
+    TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
 };
 
 #[derive(Debug)]
@@ -212,13 +211,13 @@ impl Kelp {
         let instances_bytes = bytemuck::cast_slice(&pass_data.instances);
         self.queue.write_buffer(&self.instance_buffer, 0, instances_bytes);
 
-        let target_view = frame.surface.texture.create_view(&TextureViewDescriptor::default());
+        let target_view = frame.surface.texture.create_view(&Default::default());
         let load = pass_data.clear.map_or(LoadOp::Load, LoadOp::Clear);
         let mut wgpu_pass = frame.encoder.begin_render_pass(&RenderPassDescriptor {
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: &target_view,
                 resolve_target: None,
-                ops: Operations { load, store: true },
+                ops: Operations { load, store: StoreOp::Store },
             })],
             ..Default::default()
         });

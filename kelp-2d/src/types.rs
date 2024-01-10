@@ -10,7 +10,7 @@ use interoptopus::{
 };
 use kelp_2d_imgui_wgpu::FontTexture;
 use thiserror::Error;
-use wgpu::{Color, CommandEncoder, SurfaceTexture};
+use wgpu::{Color, CommandEncoder, SurfaceTexture, Texture};
 
 pub type KelpMap<K, V> = IndexMap<K, V, ahash::RandomState>;
 
@@ -34,7 +34,7 @@ pub struct KelpColor {
 
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
 #[repr(transparent)]
-pub struct KelpTextureId(pub(crate) wgpu::Id);
+pub struct KelpTextureId(pub(crate) wgpu::Id<Texture>);
 
 unsafe impl CTypeInfo for KelpTextureId {
     fn type_info() -> CType {

@@ -3,7 +3,7 @@ use rand::Rng;
 use std::{fs::File, path::Path};
 use winit::{
     event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
+    event_loop::EventLoop,
     window::Window,
 };
 
@@ -58,35 +58,36 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
         instance_data_2.push(InstanceData { color, source, world });
     }
 
-    event_loop.run(move |event, _, control_flow| {
-        // Have the closure take ownership of kelp
-        let _ = kelp;
+    event_loop
+        .run(move |event, event_loop_window_target| {
+            // Have the closure take ownership of kelp
+            let _ = kelp;
 
-        *control_flow = ControlFlow::Poll;
-        match event {
-            Event::WindowEvent { event: WindowEvent::Resized(size), .. } => {
-                kelp.set_surface_size(size.width, size.height);
-                // On macos the window needs to be redrawn manually after resizing
-                window.request_redraw();
+            match event {
+                Event::WindowEvent { event: WindowEvent::Resized(size), .. } => {
+                    kelp.set_surface_size(size.width, size.height);
+                    // On macos the window needs to be redrawn manually after resizing
+                    window.request_redraw();
+                }
+                Event::WindowEvent { event: WindowEvent::RedrawRequested, .. } => {
+                    camera.scale += 0.001;
+                    kelp.begin_frame().unwrap();
+                    let pass = RenderPassData::new(&camera, clear)
+                        .add_instances(petal_texture, true, BlendMode::ALPHA, instance_data.as_slice())
+                        .add_instances(petal_texture, true, BlendMode::ADDITIVE, instance_data_2.as_slice());
+                    kelp.render_pass(pass).unwrap();
+                    kelp.draw_frame().unwrap();
+                }
+                Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => event_loop_window_target.exit(),
+                _ => {}
             }
-            Event::MainEventsCleared => {
-                camera.scale += 0.001;
-                kelp.begin_frame().unwrap();
-                let pass = RenderPassData::new(&camera, clear)
-                    .add_instances(petal_texture, true, BlendMode::ALPHA, instance_data.as_slice())
-                    .add_instances(petal_texture, true, BlendMode::ADDITIVE, instance_data_2.as_slice());
-                kelp.render_pass(pass).unwrap();
-                kelp.draw_frame().unwrap();
-            }
-            Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => *control_flow = ControlFlow::Exit,
-            _ => {}
-        }
-    });
+        })
+        .unwrap()
 }
 
 fn main() {
     env_logger::init();
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::new().unwrap();
     let window = Window::new(&event_loop).unwrap();
     pollster::block_on(run(event_loop, window));
 }

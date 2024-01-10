@@ -2,7 +2,6 @@ use crate::{KelpError, KelpMap, KelpTextureId};
 use std::rc::Rc;
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindingResource, Device, Sampler, Texture,
-    TextureViewDescriptor,
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -64,7 +63,7 @@ impl TextureCache {
         smooth: bool,
     ) -> Result<BindGroup, KelpError> {
         let texture = self.texture_cache.get(&texture_id).ok_or(KelpError::InvalidTextureId)?;
-        let texture_view = texture.create_view(&TextureViewDescriptor::default());
+        let texture_view = texture.create_view(&Default::default());
         let sampler = if smooth {
             &self.linear_sampler
         } else {

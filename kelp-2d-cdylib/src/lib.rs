@@ -1,5 +1,4 @@
 #![allow(clippy::missing_safety_doc)]
-#![feature(once_cell)]
 
 mod generate;
 mod types;

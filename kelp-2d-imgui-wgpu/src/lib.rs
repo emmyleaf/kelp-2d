@@ -3,7 +3,6 @@ mod types;
 use smallvec::SmallVec;
 use std::error::Error;
 use std::mem::size_of;
-use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::{fmt, slice};
 use types::{DrawCmd::Elements, DrawData, DrawIdx, DrawList, DrawVert, TextureId, Textures};
@@ -88,17 +87,11 @@ impl<'a> Default for TextureConfig<'a> {
     fn default() -> Self {
         let sampler_desc = SamplerDescriptor {
             label: Some("imgui-wgpu sampler"),
-            address_mode_u: AddressMode::ClampToEdge,
-            address_mode_v: AddressMode::ClampToEdge,
-            address_mode_w: AddressMode::ClampToEdge,
             mag_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
             mipmap_filter: FilterMode::Linear,
-            lod_min_clamp: 0.0,
             lod_max_clamp: 100.0,
-            compare: None,
-            anisotropy_clamp: None,
-            border_color: None,
+            ..Default::default()
         };
 
         Self {
@@ -171,7 +164,7 @@ impl Texture {
         }));
 
         // Extract the texture view.
-        let view = Arc::new(texture.create_view(&TextureViewDescriptor::default()));
+        let view = Arc::new(texture.create_view(&Default::default()));
 
         // Create the texture sampler.
         let sampler = device.create_sampler(&config.sampler_desc);
@@ -208,8 +201,8 @@ impl Texture {
             // layout of the source bitmap
             ImageDataLayout {
                 offset: 0,
-                bytes_per_row: NonZeroU32::new(width * 4),
-                rows_per_image: NonZeroU32::new(height),
+                bytes_per_row: Some(width * 4),
+                rows_per_image: Some(height),
             },
             // size of the source bitmap
             Extent3d { width, height, depth_or_array_layers: 1 },

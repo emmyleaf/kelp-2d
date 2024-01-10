@@ -21,7 +21,7 @@ const CAMERA_PUSH_CONSTANT: PushConstantRange = PushConstantRange { stages: Shad
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub(crate) struct PipelineId {
     // thanks to NPO, this is transparently zero for None, and the NonZeroU64 from inside wgpu::Id for Some
-    shader_id: Option<wgpu::Id>,
+    shader_id: Option<wgpu::Id<ShaderModule>>,
     blend_mode: BlendMode,
 }
 
