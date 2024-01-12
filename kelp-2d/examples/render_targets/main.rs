@@ -17,7 +17,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
         Camera::new(size.width as f32 / 2.0, size.height as f32 / 2.0, size.width as f32, size.height as f32, 0.0, 1.0);
     let clear = Some(&KelpColor { r: 0.5, g: 0.0, b: 0.5, a: 1.0 });
 
-    // Create petal texture & bind group
+    // Create petal texture
     let decoder = png::Decoder::new(File::open(Path::new("./kelp-2d/examples/petal.png")).unwrap());
     let mut reader = decoder.read_info().unwrap();
     let (tex_width, tex_height) = reader.info().size();
@@ -25,38 +25,35 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     reader.next_frame(&mut data).unwrap();
     let petal_texture = kelp.create_texture_with_data(tex_width, tex_height, data.as_slice());
 
+    // Create render texture
+    let render_texture = kelp.create_render_texture(size.width, size.height);
+
     // Set instance buffer
     let mut instance_data: Vec<InstanceData> = vec![];
     let mut rng = rand::thread_rng();
     for _ in 0..128 {
-        let color = [1.0, 1.0, 1.0, 0.5];
+        let color = [1.0, 1.0, 1.0, 1.0];
         let source = Transform::default();
         let world = Transform {
             render_x: rng.gen_range(0.0..(size.width as f32)),
             render_y: rng.gen_range(0.0..(size.height as f32)),
             rotation: rng.gen_range(0.0..(2.0 * std::f32::consts::PI)),
-            scale_x: 2.0 * tex_width as f32,
-            scale_y: 2.0 * tex_height as f32,
+            scale_x: tex_width as f32,
+            scale_y: tex_height as f32,
             ..Transform::default()
         };
 
         instance_data.push(InstanceData { color, source, world });
     }
-    let mut instance_data_2: Vec<InstanceData> = vec![];
-    for _ in 0..1024 {
-        let color = [1.0, 1.0, 1.0, 0.5];
-        let source = Transform::default();
-        let world = Transform {
-            render_x: rng.gen_range(0.0..(size.width as f32)),
-            render_y: rng.gen_range(0.0..(size.height as f32)),
-            rotation: rng.gen_range(0.0..(2.0 * std::f32::consts::PI)),
-            scale_x: 2.0 * tex_width as f32,
-            scale_y: 2.0 * tex_height as f32,
+    let instance_data_rt = [InstanceData {
+        color: [1.0, 1.0, 1.0, 1.0],
+        source: Transform::default(),
+        world: Transform {
+            scale_x: size.width as f32,
+            scale_y: size.height as f32,
             ..Transform::default()
-        };
-
-        instance_data_2.push(InstanceData { color, source, world });
-    }
+        },
+    }];
 
     event_loop
         .run(move |event, event_loop_window_target| {
@@ -70,11 +67,25 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                     window.request_redraw();
                 }
                 Event::WindowEvent { event: WindowEvent::RedrawRequested, .. } => {
-                    camera.scale += 0.001;
-                    let list = RenderList::new(None, &camera, clear)
-                        .add_instances(petal_texture, true, BlendMode::ALPHA, instance_data.as_slice())
-                        .add_instances(petal_texture, true, BlendMode::ADDITIVE, instance_data_2.as_slice());
-                    kelp.render_list(list).unwrap();
+                    let render_list_to_rt = RenderList::new(
+                        Some(render_texture),
+                        &camera,
+                        Some(&KelpColor { r: 0.0, g: 0.0, b: 0.0, a: 0.0 }),
+                    )
+                    .add_instances(
+                        petal_texture,
+                        false,
+                        BlendMode::ALPHA,
+                        instance_data.as_slice(),
+                    );
+                    let render_list_to_surf = RenderList::new(None, &camera, clear).add_instances(
+                        render_texture,
+                        false,
+                        BlendMode::ALPHA,
+                        instance_data_rt.as_slice(),
+                    );
+                    kelp.render_list(render_list_to_rt).unwrap();
+                    kelp.render_list(render_list_to_surf).unwrap();
                     kelp.present_frame().unwrap();
                 }
                 Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => event_loop_window_target.exit(),

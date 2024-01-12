@@ -3,7 +3,7 @@
 - [x] Push constant for camera matrix (falls back to uniform on OpenGL via wgpu)
 - [x] Split C ffi into a separate crate
 - [x] Pass clear colour in to `begin_render_pass` as an `Option<>`
-- [ ] Drawing to different `RenderTarget`s
+- [x] Drawing to different `RenderTarget`s
 - [ ] Separate final surface to window stage
 - [x] Allow an instance to be drawn 'Very smoot...' (linear sampled)
 - [@] Custom pipelines created on demand

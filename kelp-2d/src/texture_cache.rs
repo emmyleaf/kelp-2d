@@ -51,8 +51,15 @@ impl TextureCache {
     }
 
     pub fn get_bind_group(&self, texture_id: KelpTextureId, smooth: bool) -> Result<&BindGroup, KelpError> {
+        if !self.texture_cache.contains_key(&texture_id) {
+            return Err(KelpError::InvalidTextureId);
+        }
         let id = TextureBindGroupId { texture_id, smooth };
         self.bind_group_cache.get(&id).ok_or(KelpError::InvalidBindGroupId)
+    }
+
+    pub fn get_texture(&self, texture_id: KelpTextureId) -> Result<&Texture, KelpError> {
+        self.texture_cache.get(&texture_id).ok_or(KelpError::InvalidTextureId)
     }
 
     /* private */

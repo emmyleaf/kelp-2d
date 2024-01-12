@@ -32,6 +32,7 @@ pub(crate) struct PipelineCache {
     default_fragment_shader: ShaderModule,
     vertex_bind_layout: BindGroupLayout,
     fragment_texture_bind_layout: Rc<BindGroupLayout>,
+    surface_texture_format: TextureFormat,
 }
 
 impl PipelineCache {
@@ -40,6 +41,7 @@ impl PipelineCache {
         default_fragment_shader: ShaderModule,
         vertex_bind_layout: BindGroupLayout,
         fragment_texture_bind_layout: Rc<BindGroupLayout>,
+        surface_texture_format: TextureFormat,
     ) -> Self {
         Self {
             cache: Default::default(),
@@ -47,6 +49,7 @@ impl PipelineCache {
             default_fragment_shader,
             vertex_bind_layout,
             fragment_texture_bind_layout,
+            surface_texture_format,
         }
     }
 
@@ -105,7 +108,7 @@ impl PipelineCache {
                         BlendMode::ALPHA => BlendState::ALPHA_BLENDING,
                         BlendMode::ADDITIVE => BLEND_STATE_ADDITIVE,
                     }),
-                    format: TextureFormat::Bgra8UnormSrgb, // TODO: unhardcode this! very brittle except on current test scenario
+                    format: self.surface_texture_format,
                     write_mask: ColorWrites::ALL,
                 })],
             }),

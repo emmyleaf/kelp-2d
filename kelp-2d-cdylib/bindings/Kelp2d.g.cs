@@ -63,10 +63,10 @@ namespace Kelp2d
             }
         }
 
-        [DllImport(NativeLib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "render_batch")]
-        public static extern FFIError RenderBatch(Camera camera, ref KelpColor clear, SliceInstanceData instances, SliceInstanceBatch batches);
+        [DllImport(NativeLib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "render_list")]
+        public static extern FFIError RenderList(ulong target, Camera camera, ref KelpColor clear, SliceInstanceData instances, SliceInstanceBatch batches);
 
-        public static void RenderBatch(Camera camera, ref KelpColor clear, InstanceData[] instances, InstanceBatch[] batches)
+        public static void RenderList(ulong target, Camera camera, ref KelpColor clear, InstanceData[] instances, InstanceBatch[] batches)
         {
             unsafe
             {
@@ -76,7 +76,7 @@ namespace Kelp2d
                     fixed (void* ptr_batches = batches)
                     {
                         var batches_slice = new SliceInstanceBatch(new IntPtr(ptr_batches), (ulong) batches.Length);
-                        var rval = RenderBatch(camera, ref clear, instances_slice, batches_slice);;
+                        var rval = RenderList(target, camera, ref clear, instances_slice, batches_slice);;
                         if (rval != FFIError.Success)
                         {
                             throw new InteropException<FFIError>(rval);

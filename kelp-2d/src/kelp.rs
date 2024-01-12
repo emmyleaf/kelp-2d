@@ -1,18 +1,19 @@
-use crate::{ImGuiConfig, KelpError, KelpTextureId, PerFrame, PipelineCache, RenderBatchData, TextureCache};
+use crate::{ImGuiConfig, InstanceGPU, KelpError, KelpTextureId, PerFrame, PipelineCache, RenderList, TextureCache};
 use bytemuck::NoUninit;
 use kelp_2d_imgui_wgpu::ImGuiRenderer;
 use naga::ShaderStage;
 use pollster::FutureExt;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
-use std::{borrow::Cow, num::NonZeroU64, rc::Rc};
+use std::{borrow::Cow, mem::size_of, num::NonZeroU64, rc::Rc};
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
-    BindingType, Buffer, BufferBindingType, BufferDescriptor, BufferUsages, CommandBuffer, CommandEncoderDescriptor,
-    Device, DeviceDescriptor, Extent3d, Features, FilterMode, Instance, InstanceDescriptor, Limits, LoadOp, Operations,
-    PresentMode, Queue, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, SamplerBindingType,
-    SamplerDescriptor, ShaderModuleDescriptor, ShaderSource, ShaderStages, StoreOp, Surface, SurfaceConfiguration,
-    TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
+    BindingType, Buffer, BufferBindingType, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Device,
+    DeviceDescriptor, Extent3d, Features, FilterMode, Instance, InstanceDescriptor, Limits, LoadOp, Maintain, MapMode,
+    Operations, PresentMode, Queue, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions,
+    SamplerBindingType, SamplerDescriptor, ShaderModuleDescriptor, ShaderSource, ShaderStages, StoreOp, Surface,
+    SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+    TextureViewDimension,
 };
 
 #[derive(Debug)]
@@ -23,6 +24,7 @@ pub struct Kelp {
     pub(crate) queue: Queue,
     pub(crate) vertex_buffer: Buffer,
     pub(crate) instance_buffer: Buffer,
+    pub(crate) instance_staging_buffer: Buffer,
     pub(crate) vertex_bind_group: BindGroup,
     pub(crate) texture_cache: TextureCache,
     pub(crate) pipeline_cache: PipelineCache,
@@ -134,8 +136,15 @@ impl Kelp {
 
         let instance_buffer = device.create_buffer(&BufferDescriptor {
             label: Some("Instance Buffer"),
-            size: 4 << 20, // 4MB
+            size: 8 << 20, // 8MB
             usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let instance_staging_buffer = device.create_buffer(&BufferDescriptor {
+            label: Some("Instance Staging Buffer"),
+            size: 8 << 20, // 8MB
+            usage: BufferUsages::MAP_WRITE | BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
 
@@ -165,6 +174,7 @@ impl Kelp {
             default_fragment_shader,
             vertex_bind_layout,
             fragment_texture_bind_layout,
+            window_surface_config.format,
         );
 
         // Create ImGui renderer if passed a config, otherwise do not
@@ -178,6 +188,7 @@ impl Kelp {
             queue,
             vertex_buffer,
             instance_buffer,
+            instance_staging_buffer,
             vertex_bind_group,
             texture_cache,
             pipeline_cache,
@@ -187,8 +198,17 @@ impl Kelp {
     }
 
     pub fn present_frame(&mut self) -> Result<(), KelpError> {
-        if let Some(PerFrame { surface, encoder }) = self.per_frame.take() {
-            self.queue.submit(Some(encoder.finish()));
+        if let Some(PerFrame { surface, mut buffer_encoder, draw_encoder, .. }) = self.per_frame.take() {
+            // Copy to the shader's instance buffer
+            buffer_encoder.copy_buffer_to_buffer(
+                &self.instance_staging_buffer,
+                0,
+                &self.instance_buffer,
+                0,
+                self.instance_buffer.size(),
+            );
+            // Submit and present the frame!
+            self.queue.submit([buffer_encoder.finish(), draw_encoder.finish()]);
             surface.present()
         } else {
             self.window_surface.get_current_texture()?.present()
@@ -196,29 +216,45 @@ impl Kelp {
         Ok(())
     }
 
-    pub fn render_batch(&mut self, batch_data: RenderBatchData) -> Result<(), KelpError> {
-        if batch_data.batches.is_empty() || batch_data.instances.is_empty() {
+    pub fn render_list(&mut self, render_list: RenderList) -> Result<(), KelpError> {
+        if render_list.batches.is_empty() || render_list.instances.is_empty() {
             return Ok(()); // TODO: this could be an error instead
         }
+
+        // TODO: Error if too many instances also
 
         // Initialise per frame resources if this is the first pass this frame
         if self.per_frame.is_none() {
             let surface = self.window_surface.get_current_texture()?;
-            let encoder_desc = &CommandEncoderDescriptor { label: Some("Kelp Render Commands") };
-            let encoder = self.device.create_command_encoder(encoder_desc);
-            self.per_frame.replace(PerFrame { surface, encoder });
+            let buffer_encoder_desc = &CommandEncoderDescriptor { label: Some("Kelp Buffer Commands") };
+            let buffer_encoder = self.device.create_command_encoder(buffer_encoder_desc);
+            let draw_encoder_desc = &CommandEncoderDescriptor { label: Some("Kelp Draw Commands") };
+            let draw_encoder = self.device.create_command_encoder(draw_encoder_desc);
+            self.per_frame.replace(PerFrame { surface, buffer_encoder, draw_encoder, instance_offset: 0 });
         }
         let frame = self.per_frame.as_mut().unwrap();
 
-        let camera_bytes = bytemuck::bytes_of(&batch_data.camera);
-        let instances_bytes = bytemuck::cast_slice(&batch_data.instances);
-        self.queue.write_buffer(&self.instance_buffer, 0, instances_bytes);
+        let camera_bytes = bytemuck::bytes_of(&render_list.camera);
+        let instances_bytes = bytemuck::cast_slice(&render_list.instances);
+        let instances_length = instances_bytes.len() as u64;
 
-        // TODO: different render targets
-        let target_tex = &frame.surface;
-        let target_view = target_tex.texture.create_view(&Default::default());
-        let load = batch_data.clear.map_or(LoadOp::Load, LoadOp::Clear);
-        let mut wgpu_pass = frame.encoder.begin_render_pass(&RenderPassDescriptor {
+        // Write instances to the staging buffer
+        let byte_offset = frame.instance_offset as u64 * size_of::<InstanceGPU>() as u64;
+        let instance_range = byte_offset..byte_offset + instances_length;
+        let staging_buffer_slice = self.instance_staging_buffer.slice(instance_range);
+        staging_buffer_slice.map_async(MapMode::Write, move |_| {});
+        self.device.poll(Maintain::Wait);
+        staging_buffer_slice.get_mapped_range_mut().copy_from_slice(instances_bytes);
+        self.instance_staging_buffer.unmap();
+
+        // Create wgpu render pass with correct target texture
+        let target_tex = match render_list.target {
+            Some(texture_id) => self.texture_cache.get_texture(texture_id)?,
+            None => &frame.surface.texture,
+        };
+        let target_view = target_tex.create_view(&Default::default());
+        let load = render_list.clear.map_or(LoadOp::Load, LoadOp::Clear);
+        let mut wgpu_pass = frame.draw_encoder.begin_render_pass(&RenderPassDescriptor {
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: &target_view,
                 resolve_target: None,
@@ -228,14 +264,13 @@ impl Kelp {
         });
 
         // Create any pipelines and bind groups we will need up front
-        for batch in &batch_data.batches {
+        for batch in &render_list.batches {
             self.pipeline_cache.ensure_pipeline(&self.device, None, batch.blend_mode)?;
             self.texture_cache.ensure_bind_group(&self.device, batch.texture, batch.smooth)?;
         }
 
         let mut pipeline_index = usize::MAX; // starts invalid
-        let mut instance_index = 0;
-        for batch in &batch_data.batches {
+        for batch in &render_list.batches {
             let next_index = self.pipeline_cache.get_pipeline_index(None, batch.blend_mode)?;
 
             if pipeline_index != next_index {
@@ -249,12 +284,27 @@ impl Kelp {
             let bind_group_1 = self.texture_cache.get_bind_group(batch.texture, batch.smooth)?;
             wgpu_pass.set_bind_group(1, bind_group_1, &[]);
 
-            let instance_range_end = instance_index + batch.instance_count;
-            wgpu_pass.draw(0..4, instance_index..instance_range_end);
-            instance_index = instance_range_end;
+            let instance_range_end = frame.instance_offset + batch.instance_count;
+            wgpu_pass.draw(0..4, frame.instance_offset..instance_range_end);
+            frame.instance_offset = instance_range_end;
         }
 
         Ok(())
+    }
+
+    pub fn create_render_texture(&mut self, width: u32, height: u32) -> KelpTextureId {
+        let texture = self.device.create_texture(&TextureDescriptor {
+            label: None,
+            size: Extent3d { width, height, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            // Match the texture format with the surface, so we can reuse the pipelines
+            format: self.window_surface_config.format,
+            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+        self.texture_cache.insert_texture(texture)
     }
 
     pub fn create_texture_with_data(&mut self, width: u32, height: u32, data: &[u8]) -> KelpTextureId {
@@ -266,7 +316,7 @@ impl Kelp {
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::Rgba8Unorm,
+                format: TextureFormat::Rgba8UnormSrgb, // TODO: allow setting the tex format
                 usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
                 view_formats: &[],
             },

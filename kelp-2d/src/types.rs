@@ -43,7 +43,9 @@ unsafe impl CTypeInfo for KelpTextureId {
 #[derive(Debug)]
 pub struct PerFrame {
     pub(crate) surface: SurfaceTexture,
-    pub(crate) encoder: CommandEncoder,
+    pub(crate) buffer_encoder: CommandEncoder,
+    pub(crate) draw_encoder: CommandEncoder,
+    pub(crate) instance_offset: u32,
 }
 
 #[ffi_type]

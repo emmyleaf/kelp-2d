@@ -11,7 +11,7 @@ pub mod csharp {
             .register(function!(create_texture_with_data))
             .register(function!(initialise))
             .register(function!(present_frame))
-            .register(function!(render_batch))
+            .register(function!(render_list))
             .register(function!(set_surface_size))
             .register(function!(uninitialise))
             .inventory()

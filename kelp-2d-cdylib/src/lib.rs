@@ -5,8 +5,8 @@ mod types;
 mod window_info;
 
 use interoptopus::{ffi_function, patterns::slice::FFISlice};
-use kelp_2d::{Camera, ImGuiConfig, InstanceBatch, InstanceData, Kelp, KelpColor, KelpTextureId, RenderBatchData};
-use std::sync::OnceLock;
+use kelp_2d::{Camera, ImGuiConfig, InstanceBatch, InstanceData, Kelp, KelpColor, KelpTextureId, RenderList};
+use std::{mem::transmute, num::NonZeroU64, sync::OnceLock};
 use types::FFIError;
 use window_info::WindowInfo;
 
@@ -32,7 +32,6 @@ pub unsafe extern "C" fn create_texture_with_data(
 #[ffi_function]
 #[no_mangle]
 pub unsafe extern "C" fn initialise(window: WindowInfo /*, imgui_config: Option<&mut ImGuiConfig>*/) -> FFIError {
-    // Why is `OnceLock::is_initialized()` private..?
     if KELP.get().is_some() {
         return FFIError::KelpAlreadyInitialised;
     }
@@ -58,14 +57,16 @@ pub unsafe extern "C" fn present_frame() -> FFIError {
 
 #[ffi_function]
 #[no_mangle]
-pub unsafe extern "C" fn render_batch(
+pub unsafe extern "C" fn render_list(
+    target: Option<NonZeroU64>, // KelpTextureId
     camera: Camera,
     clear: Option<&KelpColor>,
     instances: FFISlice<InstanceData>,
     batches: FFISlice<InstanceBatch>,
 ) -> FFIError {
     match KELP.get_mut().map(|kelp| {
-        kelp.render_batch(RenderBatchData {
+        kelp.render_list(RenderList {
+            target: transmute(target),
             camera: (&camera).into(),
             clear: clear.map(Into::into),
             instances: instances.iter().map(Into::into).collect(),
