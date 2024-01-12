@@ -17,6 +17,7 @@ ahash = "0.8"
 bytemuck = "1"
 env_logger = "0.10"
 glam = { version = "0.25", features = ["bytemuck"] }
+imgui = "0.11"
 indexmap = "2"
 interoptopus = { version = "0.14", features = ["derive", "log"] }
 interoptopus_backend_csharp = "0.14"

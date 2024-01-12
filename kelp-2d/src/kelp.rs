@@ -1,6 +1,6 @@
 use crate::{ImGuiConfig, InstanceGPU, KelpError, KelpTextureId, PerFrame, PipelineCache, RenderList, TextureCache};
 use bytemuck::NoUninit;
-use kelp_2d_imgui_wgpu::ImGuiRenderer;
+use kelp_2d_imgui_wgpu::{DrawData, ImGuiRenderer, RendererConfig};
 use naga::ShaderStage;
 use pollster::FutureExt;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
@@ -178,8 +178,17 @@ impl Kelp {
         );
 
         // Create ImGui renderer if passed a config, otherwise do not
-        let imgui_renderer =
-            imgui_config.map(|config| ImGuiRenderer::new(&mut config.0, &device, &queue, Default::default()));
+        let imgui_renderer = imgui_config.map(|config| {
+            ImGuiRenderer::new(
+                &mut config.0,
+                &device,
+                &queue,
+                RendererConfig {
+                    texture_format: window_surface_config.format,
+                    ..Default::default()
+                },
+            )
+        });
 
         Ok(Self {
             window_surface,
@@ -198,7 +207,7 @@ impl Kelp {
     }
 
     pub fn present_frame(&mut self) -> Result<(), KelpError> {
-        if let Some(PerFrame { surface, mut buffer_encoder, draw_encoder, .. }) = self.per_frame.take() {
+        if let Some(PerFrame { surface, mut buffer_encoder, draw_encoder, imgui_encoder, .. }) = self.per_frame.take() {
             // Copy to the shader's instance buffer
             buffer_encoder.copy_buffer_to_buffer(
                 &self.instance_staging_buffer,
@@ -208,7 +217,11 @@ impl Kelp {
                 self.instance_buffer.size(),
             );
             // Submit and present the frame!
-            self.queue.submit([buffer_encoder.finish(), draw_encoder.finish()]);
+            let mut commands = vec![buffer_encoder.finish(), draw_encoder.finish()];
+            if let Some(encoder) = imgui_encoder {
+                commands.push(encoder.finish());
+            }
+            self.queue.submit(commands);
             surface.present()
         } else {
             self.window_surface.get_current_texture()?.present()
@@ -230,7 +243,13 @@ impl Kelp {
             let buffer_encoder = self.device.create_command_encoder(buffer_encoder_desc);
             let draw_encoder_desc = &CommandEncoderDescriptor { label: Some("Kelp Draw Commands") };
             let draw_encoder = self.device.create_command_encoder(draw_encoder_desc);
-            self.per_frame.replace(PerFrame { surface, buffer_encoder, draw_encoder, instance_offset: 0 });
+            self.per_frame.replace(PerFrame {
+                surface,
+                buffer_encoder,
+                draw_encoder,
+                instance_offset: 0,
+                imgui_encoder: None,
+            });
         }
         let frame = self.per_frame.as_mut().unwrap();
 
@@ -325,8 +344,26 @@ impl Kelp {
         self.texture_cache.insert_texture(texture)
     }
 
-    pub fn render_imgui() {
-        todo!()
+    pub fn render_imgui(&mut self, draw_data: &DrawData) {
+        if let Some(renderer) = self.imgui_renderer.as_mut() {
+            if let Some(per_frame) = self.per_frame.as_mut() {
+                let encoder_desc = &CommandEncoderDescriptor { label: Some("Kelp Imgui Commands") };
+                let mut encoder = self.device.create_command_encoder(encoder_desc);
+                let tex_view = per_frame.surface.texture.create_view(&Default::default());
+                let mut rpass = encoder.begin_render_pass(&RenderPassDescriptor {
+                    color_attachments: &[Some(RenderPassColorAttachment {
+                        view: &tex_view,
+                        resolve_target: None,
+                        ops: Operations { load: LoadOp::Load, store: StoreOp::Store },
+                    })],
+                    ..Default::default()
+                });
+                // TODO: handle this result
+                renderer.render(draw_data, &self.queue, &self.device, &mut rpass);
+                drop(rpass);
+                per_frame.imgui_encoder.replace(encoder);
+            }
+        }
     }
 
     pub fn set_surface_size(&mut self, width: u32, height: u32) {

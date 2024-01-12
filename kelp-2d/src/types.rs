@@ -45,6 +45,7 @@ pub struct PerFrame {
     pub(crate) surface: SurfaceTexture,
     pub(crate) buffer_encoder: CommandEncoder,
     pub(crate) draw_encoder: CommandEncoder,
+    pub(crate) imgui_encoder: Option<CommandEncoder>,
     pub(crate) instance_offset: u32,
 }
 
@@ -102,7 +103,7 @@ pub struct InstanceGPU {
 }
 
 #[repr(transparent)]
-pub struct ImGuiConfig(pub(crate) FontTexture);
+pub struct ImGuiConfig(pub FontTexture);
 
 #[derive(Error, Debug)]
 pub enum KelpError {

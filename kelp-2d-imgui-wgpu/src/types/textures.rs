@@ -1,4 +1,4 @@
-use ahash::AHashMap;
+pub type KelpMap<K, V> = indexmap::IndexMap<K, V, ahash::RandomState>;
 
 #[derive(Clone, Debug)]
 #[repr(C)]
@@ -21,10 +21,9 @@ pub struct FontTexture {
 #[repr(transparent)]
 pub struct TextureId(usize);
 
-// TODO: indexmap here?
 #[derive(Debug, Default)]
 pub struct Textures<T> {
-    textures: AHashMap<usize, T>,
+    textures: KelpMap<usize, T>,
     next: usize,
 }
 

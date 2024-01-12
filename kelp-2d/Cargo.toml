@@ -28,6 +28,7 @@ wgpu = { workspace = true }
 
 [dev-dependencies]
 env_logger = { workspace = true }
+imgui = { workspace = true }
 png = { workspace = true }
 rand = { workspace = true }
 winit = { workspace = true }

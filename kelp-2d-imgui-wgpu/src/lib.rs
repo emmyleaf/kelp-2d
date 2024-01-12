@@ -5,11 +5,11 @@ use std::error::Error;
 use std::mem::size_of;
 use std::sync::Arc;
 use std::{fmt, slice};
-use types::{DrawCmd::Elements, DrawData, DrawIdx, DrawList, DrawVert, TextureId, Textures};
+use types::{DrawCmd::Elements, DrawIdx, DrawList, DrawVert, TextureId, Textures};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::*;
 
-pub use types::FontTexture;
+pub use types::{DrawData, FontTexture};
 
 static VS_ENTRY_POINT: &str = "vs_main";
 static FS_ENTRY_POINT_LINEAR: &str = "fs_main_linear";
@@ -721,7 +721,5 @@ impl ImGuiRenderer {
             texture.write(queue, data, font_texture.width, font_texture.height);
         }
         font_texture.tex_id = Some(self.textures.insert(texture));
-        // Clear imgui texture data to save memory.
-        // TODO? fonts.clear_tex_data();
     }
 }
