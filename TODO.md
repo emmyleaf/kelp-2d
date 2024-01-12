@@ -4,7 +4,7 @@
 - [x] Split C ffi into a separate crate
 - [x] Pass clear colour in to `begin_render_pass` as an `Option<>`
 - [x] Drawing to different `RenderTarget`s
-- [ ] Separate final surface to window stage
+    - Separate final surface to window stage - this can just be done in Lutra as before
 - [x] Allow an instance to be drawn 'Very smoot...' (linear sampled)
 - [@] Custom pipelines created on demand
     - [x] Blend modes

@@ -85,7 +85,7 @@ impl PipelineCache {
         });
 
         device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: None, // TODO
+            label: None,
             layout: Some(&pipeline_layout),
             vertex: VertexState {
                 module: &self.default_vertex_shader,

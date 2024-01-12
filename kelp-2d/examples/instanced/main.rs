@@ -78,6 +78,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                     kelp.render_list(list).unwrap();
                     kelp.present_frame().unwrap();
                 }
+                Event::AboutToWait { .. } => window.request_redraw(),
                 Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => event_loop_window_target.exit(),
                 _ => {}
             }

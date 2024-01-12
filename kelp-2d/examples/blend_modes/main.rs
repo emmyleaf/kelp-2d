@@ -13,7 +13,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     let mut kelp = Kelp::new(&window, size.width, size.height, None).unwrap();
 
     // Set initial camera matrix
-    let mut camera =
+    let camera =
         Camera::new(size.width as f32 / 2.0, size.height as f32 / 2.0, size.width as f32, size.height as f32, 0.0, 1.0);
     let clear = Some(&KelpColor { r: 0.5, g: 0.0, b: 0.5, a: 1.0 });
 
@@ -70,7 +70,6 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                     window.request_redraw();
                 }
                 Event::WindowEvent { event: WindowEvent::RedrawRequested, .. } => {
-                    camera.scale += 0.001;
                     let list = RenderList::new(None, &camera, clear)
                         .add_instances(petal_texture, true, BlendMode::ALPHA, instance_data.as_slice())
                         .add_instances(petal_texture, true, BlendMode::ADDITIVE, instance_data_2.as_slice());
