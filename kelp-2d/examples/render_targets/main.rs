@@ -43,16 +43,19 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
             ..Transform::default()
         };
 
-        instance_data.push(InstanceData { color, source, world });
+        instance_data.push(InstanceData { color, source, world: [world, Transform::default()] });
     }
     let instance_data_rt = [InstanceData {
         color: [1.0, 1.0, 1.0, 1.0],
         source: Transform::default(),
-        world: Transform {
-            scale_x: size.width as f32,
-            scale_y: size.height as f32,
-            ..Transform::default()
-        },
+        world: [
+            Transform {
+                scale_x: size.width as f32,
+                scale_y: size.height as f32,
+                ..Transform::default()
+            },
+            Transform::default(),
+        ],
     }];
 
     event_loop

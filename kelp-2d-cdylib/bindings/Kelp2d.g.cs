@@ -158,7 +158,8 @@ namespace Kelp2d
         public float color2;
         public float color3;
         public Transform source;
-        public Transform world;
+        public Transform world0;
+        public Transform world1;
     }
 
     [Serializable]

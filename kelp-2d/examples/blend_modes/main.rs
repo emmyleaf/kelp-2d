@@ -40,7 +40,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
             ..Transform::default()
         };
 
-        instance_data.push(InstanceData { color, source, world });
+        instance_data.push(InstanceData { color, source, world: [world, Transform::default()] });
     }
     let mut instance_data_2: Vec<InstanceData> = vec![];
     for _ in 0..1024 {
@@ -55,7 +55,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
             ..Transform::default()
         };
 
-        instance_data_2.push(InstanceData { color, source, world });
+        instance_data_2.push(InstanceData { color, source, world: [world, Transform::default()] });
     }
 
     event_loop

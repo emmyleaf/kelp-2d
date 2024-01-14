@@ -54,7 +54,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
             ..Transform::default()
         };
 
-        instance_data.push(InstanceData { color, source, world });
+        instance_data.push(InstanceData { color, source, world: [world, Transform::default()] });
     }
 
     event_loop
@@ -69,10 +69,9 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                     window.request_redraw();
                 }
                 Event::WindowEvent { event: WindowEvent::RedrawRequested, .. } => {
-                    camera.scale += 0.001;
                     let sprite_list = RenderList::new(None, &camera, clear).add_instances(
                         petal_texture,
-                        false,
+                        true,
                         BlendMode::ALPHA,
                         instance_data.as_slice(),
                     );

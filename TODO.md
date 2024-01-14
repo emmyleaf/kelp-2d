@@ -15,7 +15,8 @@
         - Write guide to writing custom shaders (maybe this belongs in Lutra docs...)
 - [x] Avoid setting pipeline when it doesn't need to change - too much overhead for every draw call
 - [x] Imgui rendering! (based on `imgui-wgpu`)
-- [ ] Allow multiple world transforms per instance from API - condense to one matrix for GPU still of course
+- [x] Allow multiple world transforms per instance from API - condense to one matrix for GPU still of course
+    - Not super happy with this, but it will work for now while hooking up Lutra!
 - [x] Add whole batches of instances at a time - Lutra will ideally dump a whole buffers worth once it fills up
 - [x] Use `interoptopus` crate to generate C# bindings!
 - [x] Fix texture handling by caching them and returning ids instead of owning and sending boxed pointers

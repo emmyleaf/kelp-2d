@@ -80,7 +80,7 @@ pub struct Camera {
 pub struct InstanceData {
     pub color: [f32; 4],
     pub source: Transform,
-    pub world: Transform,
+    pub world: [Transform; 2],
 }
 
 /// A batch of instances to be added to a render pass
@@ -191,10 +191,12 @@ impl From<&Camera> for Mat4 {
 
 impl From<&InstanceData> for InstanceGPU {
     fn from(data: &InstanceData) -> Self {
+        let world1: Mat4 = (&data.world[0]).into();
+        let world2: Mat4 = (&data.world[1]).into();
         Self {
             color: data.color,
             source: (&data.source).into(),
-            world: (&data.world).into(),
+            world: world1 * world2,
         }
     }
 }
