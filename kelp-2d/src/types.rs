@@ -121,6 +121,10 @@ pub enum KelpError {
     NoAdapter,
     #[error("Failed to find an appropriate device")]
     NoDevice(#[from] wgpu::RequestDeviceError),
+    #[error("Imgui renderer not initialised")]
+    NoImgui,
+    #[error("Imgui renderer not initialised")]
+    ImguiError(#[from] kelp_2d_imgui_wgpu::RendererError),
 }
 
 impl From<&KelpColor> for Color {

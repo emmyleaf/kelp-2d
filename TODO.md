@@ -14,8 +14,7 @@
         - Will still need a binding slot for texture/buffer parameters etc
         - Write guide to writing custom shaders (maybe this belongs in Lutra docs...)
 - [x] Avoid setting pipeline when it doesn't need to change - too much overhead for every draw call
-- [@] Imgui rendering! (based on `imgui-wgpu`)
-    - [ ] update C# ffi and make sure we can shunt ImGui draw data from Lutra
+- [x] Imgui rendering! (based on `imgui-wgpu`)
 - [ ] Allow multiple world transforms per instance from API - condense to one matrix for GPU still of course
 - [x] Add whole batches of instances at a time - Lutra will ideally dump a whole buffers worth once it fills up
 - [x] Use `interoptopus` crate to generate C# bindings!

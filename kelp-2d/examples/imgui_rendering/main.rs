@@ -1,4 +1,4 @@
-use imgui::Context;
+use imgui::{Condition, Context};
 use kelp_2d::{BlendMode, Camera, ImGuiConfig, InstanceData, Kelp, KelpColor, RenderList, Transform};
 use kelp_2d_imgui_wgpu::FontTexture;
 use rand::Rng;
@@ -80,11 +80,10 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
 
                     // do some imgui stuff!
                     let ui = imgui.frame();
-                    ui.window("Kelp Imgui!").size([300.0, 100.0], imgui::Condition::FirstUseEver).build(|| {
-                        ui.text_wrapped("Hello world!");
-                        ui.text_wrapped("こんにちは世界！")
-                    });
-                    kelp.render_imgui(unsafe { transmute(imgui.render()) });
+                    ui.window("Kelp Imgui!")
+                        .size([300.0, 100.0], Condition::FirstUseEver)
+                        .build(|| ui.text_wrapped("Hello world!"));
+                    _ = kelp.render_imgui(unsafe { transmute(imgui.render()) });
 
                     kelp.present_frame().unwrap();
                 }

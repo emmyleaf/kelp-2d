@@ -16,6 +16,8 @@ pub enum FFIError {
     InvalidPipelineId = 104,
     NoAdapter = 105,
     NoDevice = 106,
+    NoImgui = 107,
+    ImguiError = 108,
     // Kelp FFI specific errors
     KelpAlreadyInitialised = 200,
     KelpNotInitialised = 201,
@@ -43,6 +45,8 @@ impl From<KelpError> for FFIError {
             KelpError::InvalidPipelineId => FFIError::InvalidPipelineId,
             KelpError::NoAdapter => FFIError::NoAdapter,
             KelpError::NoDevice(_) => FFIError::NoDevice,
+            KelpError::NoImgui => FFIError::NoImgui,
+            KelpError::ImguiError(_) => FFIError::ImguiError,
         }
     }
 }

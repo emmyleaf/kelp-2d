@@ -40,11 +40,11 @@ namespace Kelp2d
         }
 
         [DllImport(NativeLib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "initialise")]
-        public static extern FFIError Initialise(WindowInfo window);
+        public static extern FFIError Initialise(WindowInfo window, IntPtr imgui_config);
 
-        public static void Initialise_checked(WindowInfo window)
+        public static void Initialise_checked(WindowInfo window, IntPtr imgui_config)
         {
-            var rval = Initialise(window);;
+            var rval = Initialise(window, imgui_config);;
             if (rval != FFIError.Success)
             {
                 throw new InteropException<FFIError>(rval);
@@ -208,6 +208,8 @@ namespace Kelp2d
         InvalidPipelineId = 104,
         NoAdapter = 105,
         NoDevice = 106,
+        NoImgui = 107,
+        ImguiError = 108,
         KelpAlreadyInitialised = 200,
         KelpNotInitialised = 201,
     }

@@ -1,12 +1,12 @@
-#![allow(clippy::missing_safety_doc)]
+#![allow(clippy::missing_safety_doc, clippy::transmute_ptr_to_ref)]
 
 mod generate;
 mod types;
 mod window_info;
 
 use interoptopus::{ffi_function, patterns::slice::FFISlice};
-use kelp_2d::{Camera, ImGuiConfig, InstanceBatch, InstanceData, Kelp, KelpColor, KelpTextureId, RenderList};
-use std::{mem::transmute, num::NonZeroU64, sync::OnceLock};
+use kelp_2d::{Camera, InstanceBatch, InstanceData, Kelp, KelpColor, KelpTextureId, RenderList};
+use std::{ffi::c_void, mem::transmute, num::NonZeroU64, sync::OnceLock};
 use types::FFIError;
 use window_info::WindowInfo;
 
@@ -31,12 +31,12 @@ pub unsafe extern "C" fn create_texture_with_data(
 
 #[ffi_function]
 #[no_mangle]
-pub unsafe extern "C" fn initialise(window: WindowInfo /*, imgui_config: Option<&mut ImGuiConfig>*/) -> FFIError {
+pub unsafe extern "C" fn initialise(window: WindowInfo, imgui_config: *const c_void) -> FFIError {
     if KELP.get().is_some() {
         return FFIError::KelpAlreadyInitialised;
     }
     _ = env_logger::try_init();
-    match Kelp::new(&window, window.width, window.height, None) {
+    match Kelp::new(&window, window.width, window.height, transmute(imgui_config)) {
         Ok(kelp) => {
             _ = KELP.set(kelp);
             FFIError::Success
@@ -73,6 +73,16 @@ pub unsafe extern "C" fn render_list(
             batches: batches.to_vec(),
         })
     }) {
+        Some(Ok(_)) => FFIError::Success,
+        Some(Err(err)) => err.into(),
+        None => FFIError::KelpNotInitialised,
+    }
+}
+
+#[ffi_function]
+#[no_mangle]
+pub unsafe extern "C" fn render_imgui(draw_data: *const c_void) -> FFIError {
+    match KELP.get_mut().map(|kelp| kelp.render_imgui(transmute(draw_data))) {
         Some(Ok(_)) => FFIError::Success,
         Some(Err(err)) => err.into(),
         None => FFIError::KelpNotInitialised,

@@ -1,3 +1,5 @@
+#![feature(once_cell_try)]
+
 mod kelp;
 mod pipeline_cache;
 mod render_list;

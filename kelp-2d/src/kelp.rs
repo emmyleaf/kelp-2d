@@ -4,7 +4,7 @@ use kelp_2d_imgui_wgpu::{DrawData, ImGuiRenderer, RendererConfig};
 use naga::ShaderStage;
 use pollster::FutureExt;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
-use std::{borrow::Cow, mem::size_of, num::NonZeroU64, rc::Rc};
+use std::{borrow::Cow, cell::OnceCell, mem::size_of, num::NonZeroU64, rc::Rc};
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
@@ -29,7 +29,7 @@ pub struct Kelp {
     pub(crate) texture_cache: TextureCache,
     pub(crate) pipeline_cache: PipelineCache,
     pub(crate) imgui_renderer: Option<ImGuiRenderer>,
-    pub(crate) per_frame: Option<PerFrame>,
+    pub(crate) per_frame: OnceCell<PerFrame>,
 }
 
 impl Kelp {
@@ -202,7 +202,7 @@ impl Kelp {
             texture_cache,
             pipeline_cache,
             imgui_renderer,
-            per_frame: None,
+            per_frame: OnceCell::new(),
         })
     }
 
@@ -237,21 +237,8 @@ impl Kelp {
         // TODO: Error if too many instances also
 
         // Initialise per frame resources if this is the first pass this frame
-        if self.per_frame.is_none() {
-            let surface = self.window_surface.get_current_texture()?;
-            let buffer_encoder_desc = &CommandEncoderDescriptor { label: Some("Kelp Buffer Commands") };
-            let buffer_encoder = self.device.create_command_encoder(buffer_encoder_desc);
-            let draw_encoder_desc = &CommandEncoderDescriptor { label: Some("Kelp Draw Commands") };
-            let draw_encoder = self.device.create_command_encoder(draw_encoder_desc);
-            self.per_frame.replace(PerFrame {
-                surface,
-                buffer_encoder,
-                draw_encoder,
-                instance_offset: 0,
-                imgui_encoder: None,
-            });
-        }
-        let frame = self.per_frame.as_mut().unwrap();
+        _ = self.per_frame.get_or_try_init(|| self.init_per_frame())?;
+        let frame = self.per_frame.get_mut().unwrap();
 
         let camera_bytes = bytemuck::bytes_of(&render_list.camera);
         let instances_bytes = bytemuck::cast_slice(&render_list.instances);
@@ -344,25 +331,27 @@ impl Kelp {
         self.texture_cache.insert_texture(texture)
     }
 
-    pub fn render_imgui(&mut self, draw_data: &DrawData) {
-        if let Some(renderer) = self.imgui_renderer.as_mut() {
-            if let Some(per_frame) = self.per_frame.as_mut() {
-                let encoder_desc = &CommandEncoderDescriptor { label: Some("Kelp Imgui Commands") };
-                let mut encoder = self.device.create_command_encoder(encoder_desc);
-                let tex_view = per_frame.surface.texture.create_view(&Default::default());
-                let mut rpass = encoder.begin_render_pass(&RenderPassDescriptor {
-                    color_attachments: &[Some(RenderPassColorAttachment {
-                        view: &tex_view,
-                        resolve_target: None,
-                        ops: Operations { load: LoadOp::Load, store: StoreOp::Store },
-                    })],
-                    ..Default::default()
-                });
-                // TODO: handle this result
-                renderer.render(draw_data, &self.queue, &self.device, &mut rpass);
-                drop(rpass);
-                per_frame.imgui_encoder.replace(encoder);
-            }
+    pub fn render_imgui(&mut self, draw_data: &DrawData) -> Result<(), KelpError> {
+        if self.imgui_renderer.is_none() {
+            Err(KelpError::NoImgui)
+        } else {
+            _ = self.per_frame.get_or_try_init(|| self.init_per_frame())?;
+            let frame = self.per_frame.get_mut().unwrap();
+            let encoder_desc = &CommandEncoderDescriptor { label: Some("Kelp Imgui Commands") };
+            let mut encoder = self.device.create_command_encoder(encoder_desc);
+            let tex_view = frame.surface.texture.create_view(&Default::default());
+            let mut rpass = encoder.begin_render_pass(&RenderPassDescriptor {
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view: &tex_view,
+                    resolve_target: None,
+                    ops: Operations { load: LoadOp::Load, store: StoreOp::Store },
+                })],
+                ..Default::default()
+            });
+            self.imgui_renderer.as_mut().unwrap().render(draw_data, &self.queue, &self.device, &mut rpass)?;
+            drop(rpass);
+            frame.imgui_encoder.replace(encoder);
+            Ok(())
         }
     }
 
@@ -375,5 +364,20 @@ impl Kelp {
     pub fn update_buffer<T: NoUninit>(&self, buffer: &Buffer, data: &[T]) {
         let bytes = bytemuck::cast_slice(data);
         self.queue.write_buffer(buffer, 0, bytes);
+    }
+
+    fn init_per_frame(&self) -> Result<PerFrame, KelpError> {
+        let surface = self.window_surface.get_current_texture()?;
+        let buffer_encoder_desc = &CommandEncoderDescriptor { label: Some("Kelp Buffer Commands") };
+        let buffer_encoder = self.device.create_command_encoder(buffer_encoder_desc);
+        let draw_encoder_desc = &CommandEncoderDescriptor { label: Some("Kelp Draw Commands") };
+        let draw_encoder = self.device.create_command_encoder(draw_encoder_desc);
+        Ok(PerFrame {
+            surface,
+            buffer_encoder,
+            draw_encoder,
+            instance_offset: 0,
+            imgui_encoder: None,
+        })
     }
 }
