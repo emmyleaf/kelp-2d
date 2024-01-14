@@ -63,6 +63,18 @@ namespace Kelp2d
             }
         }
 
+        [DllImport(NativeLib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "render_imgui")]
+        public static extern FFIError RenderImgui(IntPtr draw_data);
+
+        public static void RenderImgui_checked(IntPtr draw_data)
+        {
+            var rval = RenderImgui(draw_data);;
+            if (rval != FFIError.Success)
+            {
+                throw new InteropException<FFIError>(rval);
+            }
+        }
+
         [DllImport(NativeLib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "render_list")]
         public static extern FFIError RenderList(ulong target, Camera camera, ref KelpColor clear, SliceInstanceData instances, SliceInstanceBatch batches);
 
