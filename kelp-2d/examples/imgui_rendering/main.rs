@@ -1,5 +1,5 @@
 use imgui::{Condition, Context};
-use kelp_2d::{BlendMode, Camera, ImGuiConfig, InstanceData, Kelp, KelpColor, RenderList, Transform};
+use kelp_2d::{BlendMode, Camera, ImGuiConfig, InstanceGPU, Kelp, KelpColor, RenderList, Transform};
 use kelp_2d_imgui_wgpu::FontTexture;
 use rand::Rng;
 use std::{fs::File, mem::transmute, path::Path};
@@ -40,7 +40,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     let petal_texture = kelp.create_texture_with_data(tex_width, tex_height, data.as_slice());
 
     // Set instance buffer
-    let mut instance_data: Vec<InstanceData> = vec![];
+    let mut instance_data: Vec<InstanceGPU> = vec![];
     let mut rng = rand::thread_rng();
     for _ in 0..128 {
         let color = [1.0, 1.0, 1.0, 1.0];
@@ -54,7 +54,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
             ..Transform::default()
         };
 
-        instance_data.push(InstanceData { color, source, world: [world, Transform::default()] });
+        instance_data.push(InstanceGPU { color, source, world: [world, Transform::default()] });
     }
 
     event_loop

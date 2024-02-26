@@ -1,5 +1,4 @@
 use crate::{BlendMode, KelpError, KelpMap};
-use std::rc::Rc;
 use wgpu::{
     BindGroupLayout, BlendComponent, BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrites, Device,
     FragmentState, MultisampleState, PipelineLayoutDescriptor, PrimitiveState, PrimitiveTopology, PushConstantRange,
@@ -31,7 +30,6 @@ pub(crate) struct PipelineCache {
     default_vertex_shader: ShaderModule,
     default_fragment_shader: ShaderModule,
     vertex_bind_layout: BindGroupLayout,
-    fragment_texture_bind_layout: Rc<BindGroupLayout>,
     surface_texture_format: TextureFormat,
 }
 
@@ -40,7 +38,6 @@ impl PipelineCache {
         default_vertex_shader: ShaderModule,
         default_fragment_shader: ShaderModule,
         vertex_bind_layout: BindGroupLayout,
-        fragment_texture_bind_layout: Rc<BindGroupLayout>,
         surface_texture_format: TextureFormat,
     ) -> Self {
         Self {
@@ -48,7 +45,6 @@ impl PipelineCache {
             default_vertex_shader,
             default_fragment_shader,
             vertex_bind_layout,
-            fragment_texture_bind_layout,
             surface_texture_format,
         }
     }
@@ -80,7 +76,7 @@ impl PipelineCache {
     fn create_pipeline(&self, device: &Device, shader: Option<&ShaderModule>, blend_mode: BlendMode) -> RenderPipeline {
         let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: None,
-            bind_group_layouts: &[&self.vertex_bind_layout, self.fragment_texture_bind_layout.as_ref()],
+            bind_group_layouts: &[&self.vertex_bind_layout],
             push_constant_ranges: &[CAMERA_PUSH_CONSTANT],
         });
 

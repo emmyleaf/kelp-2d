@@ -1,91 +1,74 @@
-use crate::{KelpError, KelpMap, KelpTextureId};
-use std::rc::Rc;
-use wgpu::{
-    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindingResource, Device, Sampler, Texture,
-};
+use crate::{KelpError, KelpMap, KelpTargetId, KelpTextureId};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub(crate) struct TextureBindGroupId {
-    texture_id: KelpTextureId,
-    smooth: bool,
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub(crate) struct TextureAllocation {
+    pub(crate) id: KelpTextureId,
+    pub(crate) rectangle: guillotiere::Rectangle,
 }
 
-#[derive(Debug)]
+// TODO: move the samplers outta here now?
 pub(crate) struct TextureCache {
-    texture_cache: KelpMap<KelpTextureId, Texture>,
-    bind_group_cache: KelpMap<TextureBindGroupId, BindGroup>,
-    texture_bind_layout: Rc<BindGroupLayout>,
-    linear_sampler: Sampler,
-    point_sampler: Sampler,
+    allocators: Vec<guillotiere::AtlasAllocator>,
+    texture_cache: KelpMap<KelpTextureId, TextureAllocation>,
+    target_cache: KelpMap<KelpTargetId, wgpu::Texture>,
+    point_sampler: wgpu::Sampler,
+    linear_sampler: wgpu::Sampler,
 }
 
 impl TextureCache {
-    pub fn new(texture_bind_layout: Rc<BindGroupLayout>, linear_sampler: Sampler, point_sampler: Sampler) -> Self {
+    pub fn new(texture_array: &wgpu::Texture, point_sampler: wgpu::Sampler, linear_sampler: wgpu::Sampler) -> Self {
+        let alloc_size = guillotiere::Size::new(texture_array.width() as i32, texture_array.height() as i32);
+        let layers = texture_array.depth_or_array_layers() as usize;
         Self {
+            allocators: vec![guillotiere::AtlasAllocator::new(alloc_size); layers],
             texture_cache: Default::default(),
-            bind_group_cache: Default::default(),
-            texture_bind_layout,
-            linear_sampler,
+            target_cache: Default::default(),
             point_sampler,
+            linear_sampler,
         }
     }
 
-    pub fn insert_texture(&mut self, texture: Texture) -> KelpTextureId {
-        let id = KelpTextureId(texture.global_id());
-        self.texture_cache.insert(id, texture);
+    pub fn new_texture_alloc(&mut self, width: u32, height: u32) -> KelpTextureId {
+        // TODO: handle extending the array! and error for failing to do so
+        let allocation = self.allocate_texture(width as i32, height as i32).unwrap();
+        let id = allocation.id;
+        self.texture_cache.insert(id, allocation);
         id
     }
 
-    pub fn ensure_bind_group(
-        &mut self,
-        device: &Device,
-        texture_id: KelpTextureId,
-        smooth: bool,
-    ) -> Result<(), KelpError> {
-        let id = TextureBindGroupId { texture_id, smooth };
-        if !self.bind_group_cache.contains_key(&id) {
-            let bind_group = self.create_texture_bind_group(device, texture_id, smooth)?;
-            self.bind_group_cache.insert(id, bind_group);
-        }
-        Ok(())
+    pub fn insert_target(&mut self, texture: wgpu::Texture) -> KelpTargetId {
+        let id = KelpTargetId(texture.global_id());
+        self.target_cache.insert(id, texture);
+        id
     }
 
-    pub fn get_bind_group(&self, texture_id: KelpTextureId, smooth: bool) -> Result<&BindGroup, KelpError> {
-        if !self.texture_cache.contains_key(&texture_id) {
-            return Err(KelpError::InvalidTextureId);
-        }
-        let id = TextureBindGroupId { texture_id, smooth };
-        self.bind_group_cache.get(&id).ok_or(KelpError::InvalidBindGroupId)
+    pub fn get_texture(&self, texture_id: KelpTextureId) -> Result<TextureAllocation, KelpError> {
+        self.texture_cache.get(&texture_id).map(Clone::clone).ok_or(KelpError::InvalidTextureId)
     }
 
-    pub fn get_texture(&self, texture_id: KelpTextureId) -> Result<&Texture, KelpError> {
-        self.texture_cache.get(&texture_id).ok_or(KelpError::InvalidTextureId)
+    pub fn get_target(&self, target_id: KelpTargetId) -> Result<&wgpu::Texture, KelpError> {
+        self.target_cache.get(&target_id).ok_or(KelpError::InvalidTextureId)
     }
 
     /* private */
-    fn create_texture_bind_group(
-        &self,
-        device: &Device,
-        texture_id: KelpTextureId,
-        smooth: bool,
-    ) -> Result<BindGroup, KelpError> {
-        let texture = self.texture_cache.get(&texture_id).ok_or(KelpError::InvalidTextureId)?;
-        let texture_view = texture.create_view(&Default::default());
-        let sampler = if smooth {
-            &self.linear_sampler
+    fn allocate_texture(&mut self, width: i32, height: i32) -> Option<TextureAllocation> {
+        let size_with_padding = guillotiere::Size::new(width + 1, height + 1);
+        let mut allocation: Option<guillotiere::Allocation> = None;
+        let mut layer = 0;
+        for (i, allocator) in self.allocators.iter_mut().enumerate() {
+            allocation = allocator.allocate(size_with_padding);
+            if allocation.is_some() {
+                layer = i as u32;
+                break;
+            }
+        }
+
+        if let Some(guillotiere::Allocation { id, mut rectangle }) = allocation {
+            rectangle.max.x -= 1;
+            rectangle.max.y -= 1;
+            Some(TextureAllocation { id: KelpTextureId { layer, alloc_id: id }, rectangle })
         } else {
-            &self.point_sampler
-        };
-        Ok(device.create_bind_group(&BindGroupDescriptor {
-            label: None,
-            layout: self.texture_bind_layout.as_ref(),
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(&texture_view),
-                },
-                BindGroupEntry { binding: 1, resource: BindingResource::Sampler(sampler) },
-            ],
-        }))
+            None
+        }
     }
 }

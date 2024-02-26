@@ -16,11 +16,12 @@ crate-type = ["rlib"]
 [dependencies]
 ahash = { workspace = true }
 bytemuck = { workspace = true }
+guillotiere = { workspace = true }
 glam = { workspace = true }
 indexmap = { workspace = true }
 interoptopus = { workspace = true }
 kelp-2d-imgui-wgpu = { path = "../kelp-2d-imgui-wgpu" }
-naga = { workspace = true }
+mint = { workspace = true }
 pollster = { workspace = true }
 raw-window-handle = { workspace = true }
 thiserror = { workspace = true }

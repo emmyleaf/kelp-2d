@@ -20,6 +20,18 @@ namespace Kelp2d
         }
 
 
+        [DllImport(NativeLib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "create_empty_texture")]
+        public static extern FFIError CreateEmptyTexture(uint width, uint height, out ulong out_id);
+
+        public static void CreateEmptyTexture_checked(uint width, uint height, out ulong out_id)
+        {
+            var rval = CreateEmptyTexture(width, height, out out_id);;
+            if (rval != FFIError.Success)
+            {
+                throw new InteropException<FFIError>(rval);
+            }
+        }
+
         [DllImport(NativeLib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "create_texture_with_data")]
         public static extern FFIError CreateTextureWithData(uint width, uint height, Sliceu8 data, out ulong out_id);
 
@@ -156,6 +168,7 @@ namespace Kelp2d
     internal partial struct InstanceBatch
     {
         public ulong texture;
+        [MarshalAs(UnmanagedType.I1)]
         public bool smooth;
         public BlendMode blendMode;
         public uint instanceCount;

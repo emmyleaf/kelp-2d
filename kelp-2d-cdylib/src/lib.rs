@@ -5,12 +5,24 @@ mod types;
 mod window_info;
 
 use interoptopus::{ffi_function, patterns::slice::FFISlice};
-use kelp_2d::{Camera, InstanceBatch, InstanceData, Kelp, KelpColor, KelpTextureId, RenderList};
+use kelp_2d::{Camera, InstanceBatch, InstanceGPU, Kelp, KelpColor, KelpTextureId, RenderList};
 use std::{ffi::c_void, mem::transmute, num::NonZeroU64, sync::OnceLock};
 use types::FFIError;
 use window_info::WindowInfo;
 
 static mut KELP: OnceLock<Kelp> = OnceLock::new();
+
+#[ffi_function]
+#[no_mangle]
+pub unsafe extern "C" fn create_empty_texture(width: u32, height: u32, out_id: &mut KelpTextureId) -> FFIError {
+    match KELP.get_mut().map(|kelp| kelp.create_empty_texture(width, height)) {
+        Some(value) => {
+            *out_id = value;
+            FFIError::Success
+        }
+        None => FFIError::KelpNotInitialised,
+    }
+}
 
 #[ffi_function]
 #[no_mangle]
@@ -61,7 +73,7 @@ pub unsafe extern "C" fn render_list(
     target: Option<NonZeroU64>, // KelpTextureId
     camera: Camera,
     clear: Option<&KelpColor>,
-    instances: FFISlice<InstanceData>,
+    instances: FFISlice<InstanceGPU>,
     batches: FFISlice<InstanceBatch>,
 ) -> FFIError {
     match KELP.get_mut().map(|kelp| {

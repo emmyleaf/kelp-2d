@@ -1,4 +1,4 @@
-use kelp_2d::{BlendMode, Camera, InstanceData, Kelp, KelpColor, RenderList, Transform};
+use kelp_2d::{BlendMode, Camera, InstanceGPU, Kelp, KelpColor, RenderList, Transform};
 use rand::Rng;
 use std::{fs::File, path::Path};
 use winit::{
@@ -26,10 +26,10 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     let petal_texture = kelp.create_texture_with_data(tex_width, tex_height, data.as_slice());
 
     // Create render texture
-    let render_texture = kelp.create_render_texture(size.width, size.height);
+    let render_texture = kelp.create_render_target(size.width, size.height);
 
     // Set instance buffer
-    let mut instance_data: Vec<InstanceData> = vec![];
+    let mut instance_data: Vec<InstanceGPU> = vec![];
     let mut rng = rand::thread_rng();
     for _ in 0..128 {
         let color = [1.0, 1.0, 1.0, 1.0];
@@ -43,9 +43,9 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
             ..Transform::default()
         };
 
-        instance_data.push(InstanceData { color, source, world: [world, Transform::default()] });
+        instance_data.push(InstanceGPU { color, source, world: [world, Transform::default()] });
     }
-    let instance_data_rt = [InstanceData {
+    let instance_data_rt = [InstanceGPU {
         color: [1.0, 1.0, 1.0, 1.0],
         source: Transform::default(),
         world: [

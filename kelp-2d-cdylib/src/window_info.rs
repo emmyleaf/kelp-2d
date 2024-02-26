@@ -1,10 +1,11 @@
 use core::ffi::c_void;
 use interoptopus::ffi_type;
 use raw_window_handle::{
-    AppKitDisplayHandle, AppKitWindowHandle, HasRawDisplayHandle, HasRawWindowHandle, RawDisplayHandle,
-    RawWindowHandle, WaylandDisplayHandle, WaylandWindowHandle, Win32WindowHandle, WindowsDisplayHandle,
-    XlibDisplayHandle, XlibWindowHandle,
+    AppKitDisplayHandle, AppKitWindowHandle, DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle,
+    RawDisplayHandle, RawWindowHandle, WaylandDisplayHandle, WaylandWindowHandle, Win32WindowHandle, WindowHandle,
+    WindowsDisplayHandle, XlibDisplayHandle, XlibWindowHandle,
 };
+use std::{num::NonZeroIsize, ptr::NonNull};
 
 #[ffi_type]
 #[repr(C)]
@@ -27,50 +28,37 @@ pub struct WindowInfo {
     pub height: u32,
 }
 
-unsafe impl HasRawWindowHandle for WindowInfo {
-    fn raw_window_handle(&self) -> RawWindowHandle {
-        match self.window_type {
+impl HasWindowHandle for WindowInfo {
+    fn window_handle(&self) -> Result<WindowHandle<'_>, HandleError> {
+        let raw = match self.window_type {
             WindowType::Win32 => {
-                let mut win32_handle = Win32WindowHandle::empty();
-                win32_handle.hwnd = self.window_handle;
-                win32_handle.hinstance = self.second_handle;
+                let hwnd = unsafe { NonZeroIsize::new_unchecked(self.window_handle as isize) };
+                let mut win32_handle = Win32WindowHandle::new(hwnd);
+                win32_handle.hinstance = NonZeroIsize::new(self.second_handle as isize);
                 RawWindowHandle::Win32(win32_handle)
             }
-            WindowType::Xlib => {
-                let mut xlib_handle = XlibWindowHandle::empty();
-                xlib_handle.window = self.window_handle as u32;
-                RawWindowHandle::Xlib(xlib_handle)
-            }
-            WindowType::Wayland => {
-                let mut wayland_handle = WaylandWindowHandle::empty();
-                wayland_handle.surface = self.window_handle;
-                RawWindowHandle::Wayland(wayland_handle)
-            }
+            WindowType::Xlib => RawWindowHandle::Xlib(XlibWindowHandle::new(self.window_handle as u32)),
+            WindowType::Wayland => RawWindowHandle::Wayland(WaylandWindowHandle::new(unsafe {
+                NonNull::new_unchecked(self.window_handle)
+            })),
             WindowType::AppKit => {
-                let mut appkit_handle = AppKitWindowHandle::empty();
-                appkit_handle.ns_window = self.window_handle;
-                appkit_handle.ns_view = self.second_handle;
-                RawWindowHandle::AppKit(appkit_handle)
+                RawWindowHandle::AppKit(AppKitWindowHandle::new(unsafe { NonNull::new_unchecked(self.window_handle) }))
             }
-        }
+        };
+        Ok(unsafe { WindowHandle::borrow_raw(raw) })
     }
 }
 
-unsafe impl HasRawDisplayHandle for WindowInfo {
-    fn raw_display_handle(&self) -> RawDisplayHandle {
-        match self.window_type {
-            WindowType::Win32 => RawDisplayHandle::Windows(WindowsDisplayHandle::empty()),
-            WindowType::Xlib => {
-                let mut xlib_handle = XlibDisplayHandle::empty();
-                xlib_handle.display = self.second_handle;
-                RawDisplayHandle::Xlib(xlib_handle)
-            }
-            WindowType::Wayland => {
-                let mut wayland_handle = WaylandDisplayHandle::empty();
-                wayland_handle.display = self.second_handle;
-                RawDisplayHandle::Wayland(wayland_handle)
-            }
-            WindowType::AppKit => RawDisplayHandle::AppKit(AppKitDisplayHandle::empty()),
-        }
+impl HasDisplayHandle for WindowInfo {
+    fn display_handle(&self) -> Result<DisplayHandle<'_>, HandleError> {
+        let raw = match self.window_type {
+            WindowType::Win32 => RawDisplayHandle::Windows(WindowsDisplayHandle::new()),
+            WindowType::Xlib => RawDisplayHandle::Xlib(XlibDisplayHandle::new(NonNull::new(self.second_handle), 0)),
+            WindowType::Wayland => RawDisplayHandle::Wayland(WaylandDisplayHandle::new(unsafe {
+                NonNull::new_unchecked(self.second_handle)
+            })),
+            WindowType::AppKit => RawDisplayHandle::AppKit(AppKitDisplayHandle::new()),
+        };
+        Ok(unsafe { DisplayHandle::borrow_raw(raw) })
     }
 }
