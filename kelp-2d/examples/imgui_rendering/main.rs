@@ -1,13 +1,22 @@
 use imgui::{Condition, Context};
-use kelp_2d::{BlendMode, Camera, ImGuiConfig, InstanceGPU, Kelp, KelpColor, RenderList, Transform};
+use kelp_2d::{BlendMode, Camera, ImGuiConfig, InstanceData, InstanceMode, Kelp, KelpColor, RenderList};
 use kelp_2d_imgui_wgpu::FontTexture;
 use rand::Rng;
-use std::{fs::File, mem::transmute, path::Path};
+use std::{f32::consts::TAU, fs::File, mem::transmute, path::Path};
 use winit::{
     event::{Event, WindowEvent},
     event_loop::EventLoop,
     window::Window,
 };
+
+pub fn world_mat(render_x: f32, render_y: f32, rotation: f32, scale_x: f32, scale_y: f32) -> mint::RowMatrix3x2<f32> {
+    let (sin, cos) = rotation.sin_cos();
+    mint::RowMatrix3x2 {
+        x: mint::Vector2 { x: cos * scale_x, y: sin * scale_x },
+        y: mint::Vector2 { x: -sin * scale_y, y: cos * scale_y },
+        z: mint::Vector2 { x: render_x, y: render_y },
+    }
+}
 
 async fn run(event_loop: EventLoop<()>, window: Window) {
     let size = window.inner_size();
@@ -27,7 +36,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     let mut kelp = Kelp::new(&window, size.width, size.height, Some(&mut ImGuiConfig(font_texture))).unwrap();
 
     // Set initial camera matrix
-    let mut camera =
+    let camera =
         Camera::new(size.width as f32 / 2.0, size.height as f32 / 2.0, size.width as f32, size.height as f32, 0.0, 1.0);
     let clear = Some(&KelpColor { r: 0.5, g: 0.0, b: 0.5, a: 1.0 });
 
@@ -37,24 +46,25 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     let (tex_width, tex_height) = reader.info().size();
     let mut data = vec![0; reader.output_buffer_size()];
     reader.next_frame(&mut data).unwrap();
-    let petal_texture = kelp.create_texture_with_data(tex_width, tex_height, data.as_slice());
+    let petal_texture = kelp.create_texture_with_data(tex_width, tex_height, data.as_slice()).unwrap();
 
     // Set instance buffer
-    let mut instance_data: Vec<InstanceGPU> = vec![];
+    let mut instance_data: Vec<InstanceData> = vec![];
     let mut rng = rand::thread_rng();
     for _ in 0..128 {
-        let color = [1.0, 1.0, 1.0, 1.0];
-        let source = Transform::default();
-        let world = Transform {
-            render_x: rng.gen_range(0.0..(size.width as f32)),
-            render_y: rng.gen_range(0.0..(size.height as f32)),
-            rotation: rng.gen_range(0.0..(2.0 * std::f32::consts::PI)),
-            scale_x: tex_width as f32,
-            scale_y: tex_height as f32,
-            ..Transform::default()
-        };
+        let color = [1.0, 1.0, 1.0, 1.0].into();
+        let mode = InstanceMode::Multiply;
+        let source_trans = [0.0, 0.0].into();
+        let source_scale = [1.0, 1.0].into();
+        let world = world_mat(
+            rng.gen_range(0.0..(size.width as f32)),
+            rng.gen_range(0.0..(size.height as f32)),
+            rng.gen_range(0.0..(TAU)),
+            tex_width as f32,
+            tex_height as f32,
+        );
 
-        instance_data.push(InstanceGPU { color, source, world: [world, Transform::default()] });
+        instance_data.push(InstanceData { color, mode, source_trans, source_scale, world });
     }
 
     event_loop
@@ -70,12 +80,13 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                 }
                 Event::WindowEvent { event: WindowEvent::RedrawRequested, .. } => {
                     let sprite_list = RenderList::new(None, &camera, clear).add_instances(
+                        &kelp,
                         petal_texture,
                         true,
                         BlendMode::ALPHA,
                         instance_data.as_slice(),
                     );
-                    kelp.render_list(sprite_list).unwrap();
+                    kelp.render_list(sprite_list.unwrap()).unwrap();
 
                     // do some imgui stuff!
                     let ui = imgui.frame();

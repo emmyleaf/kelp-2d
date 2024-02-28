@@ -18,7 +18,7 @@ bytemuck = "1"
 env_logger = "0.11"
 guillotiere = "0.6"
 glam = { version = "0.25", features = ["bytemuck", "mint"] }
-imgui = "0.11"
+imgui = { version = "0.11", features = ["docking"] }
 indexmap = "2"
 interoptopus = { version = "0.14", features = ["derive", "log"] }
 interoptopus_backend_csharp = "0.14"

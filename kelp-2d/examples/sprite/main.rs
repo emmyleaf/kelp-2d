@@ -1,5 +1,5 @@
 use kelp_2d::{BlendMode, Camera, InstanceData, InstanceMode, Kelp, KelpColor, RenderList};
-use std::{fs::File, path::Path};
+use std::{f32::consts::TAU, fs::File, path::Path};
 use winit::{
     event::{Event, WindowEvent},
     event_loop::EventLoop,
@@ -26,19 +26,33 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
 
     // Set instance buffer
     let mut instance_data: Vec<InstanceData> = vec![];
-    for _ in 0..2 {
+    for i in 0..2 {
         let color = [1.0, 1.0, 1.0, 1.0].into();
+        let mode = InstanceMode::Multiply;
+        let source_trans = [(32 * i) as f32, (32 * i) as f32].into();
+        let source_scale = [1.0 / (1 + i) as f32, 1.0 / (1 + i) as f32].into();
+        let world = mint::RowMatrix3x2 {
+            x: mint::Vector2 { x: tex_width as f32, y: 0.0 },
+            y: mint::Vector2 { x: 0.0, y: tex_height as f32 },
+            z: mint::Vector2 { x: (i * tex_width) as f32, y: 0.0 },
+        };
+
+        instance_data.push(InstanceData { color, mode, source_trans, source_scale, world });
+    }
+    {
+        let color = [1.0, 1.0, 1.0, 0.5].into();
         let mode = InstanceMode::Multiply;
         let source_trans = [0.0, 0.0].into();
         let source_scale = [1.0, 1.0].into();
         let world = mint::RowMatrix3x2 {
             x: mint::Vector2 { x: tex_width as f32, y: 0.0 },
             y: mint::Vector2 { x: 0.0, y: tex_height as f32 },
-            z: mint::Vector2 { x: 0.0, y: 0.0 },
+            z: mint::Vector2 { x: 128.0, y: 128.0 },
         };
-
         instance_data.push(InstanceData { color, mode, source_trans, source_scale, world });
     }
+
+    let mut degs = 0.0;
 
     event_loop
         .run(move |event, event_loop_window_target| {
@@ -52,11 +66,17 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                     window.request_redraw();
                 }
                 Event::WindowEvent { event: WindowEvent::RedrawRequested, .. } => {
-                    // camera.scale += 0.001;
+                    let (sin, cos) = (degs * TAU / 360.0).sin_cos();
+                    instance_data[2].world = mint::RowMatrix3x2 {
+                        x: mint::Vector2 { x: cos * tex_width as f32, y: sin * tex_width as f32 },
+                        y: mint::Vector2 { x: -sin * tex_height as f32, y: cos * tex_height as f32 },
+                        z: mint::Vector2 { x: 128.0, y: 128.0 },
+                    };
+                    degs += 1.0;
+
                     let list = RenderList::new(None, &camera, clear)
                         .add_instances(&kelp, petal_texture, false, BlendMode::ALPHA, instance_data.as_slice())
                         .unwrap();
-                    // dbg!(&list);
                     kelp.render_list(list).unwrap();
                     kelp.present_frame().unwrap();
                 }

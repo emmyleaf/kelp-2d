@@ -52,23 +52,23 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
 
         instance_data.push(InstanceData { color, mode, source_trans, source_scale, world });
     }
-    // let mut instance_data_2: Vec<InstanceData> = vec![];
-    // for _ in 0..(1 << 14) {
-    //     let color =
-    //         [rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0)].into();
-    //     let mode = InstanceMode::Multiply;
-    //     let source_trans = [0.0, 0.0].into();
-    //     let source_scale = [1.0, 1.0].into();
-    //     let world = world_mat(
-    //         rng.gen_range(0.0..(size.width as f32)),
-    //         rng.gen_range(0.0..(size.height as f32)),
-    //         0.0, //rng.gen_range(0.0..(TAU)),
-    //         tex_width as f32,
-    //         tex_height as f32,
-    //     );
+    let mut instance_data_2: Vec<InstanceData> = vec![];
+    for _ in 0..(1 << 14) {
+        let color =
+            [rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0)].into();
+        let mode = InstanceMode::Multiply;
+        let source_trans = [0.0, 0.0].into();
+        let source_scale = [1.0, 1.0].into();
+        let world = world_mat(
+            rng.gen_range(0.0..(size.width as f32)),
+            rng.gen_range(0.0..(size.height as f32)),
+            rng.gen_range(0.0..(TAU)),
+            tex_width as f32,
+            tex_height as f32,
+        );
 
-    //     instance_data_2.push(InstanceData { color, mode, source_trans, source_scale, world });
-    // }
+        instance_data_2.push(InstanceData { color, mode, source_trans, source_scale, world });
+    }
 
     event_loop
         .run(move |event, event_loop_window_target| {
@@ -82,11 +82,11 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                     window.request_redraw();
                 }
                 Event::WindowEvent { event: WindowEvent::RedrawRequested, .. } => {
-                    // camera.scale += 0.001;
+                    camera.scale += 0.001;
                     let list = RenderList::new(None, &camera, clear)
                         .add_instances(&kelp, petal_texture, false, BlendMode::ALPHA, instance_data.as_slice())
-                        // .unwrap()
-                        // .add_instances(&kelp, petal_texture, true, BlendMode::ALPHA, instance_data_2.as_slice())
+                        .unwrap()
+                        .add_instances(&kelp, petal_texture, true, BlendMode::ALPHA, instance_data_2.as_slice())
                         .unwrap();
                     // dbg!(&list);
                     kelp.render_list(list).unwrap();
