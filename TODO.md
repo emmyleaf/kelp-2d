@@ -1,34 +1,15 @@
-- [x] Write this todo list - scan through Lutra code for necessary features for kelp
-- [x] Camera proj/view matrix calculation
-- [x] Push constant for camera matrix (falls back to uniform on OpenGL via wgpu)
-- [x] Split C ffi into a separate crate
-- [x] Pass clear colour in to `begin_render_pass` as an `Option<>`
-- [x] Drawing to different `RenderTarget`s
-  - Separate final surface to window stage - this can just be done in Lutra as before
-- [x] Allow an instance to be drawn 'Very smoot...' (linear sampled)
-- [@] Custom pipelines created on demand
-  - [x] Blend modes
-  - [ ] Custom fragment shaders
-    - Shader parameters - describe the layout at creation time
-    - What if we open up the remaining 64 bytes of push constants? that will cover most shaders used in tmfbma/dddb
-    - Will still need a binding slot for texture/buffer parameters etc
-    - Write guide to writing custom shaders (maybe this belongs in Lutra docs...)
-- [x] Avoid setting pipeline when it doesn't need to change - too much overhead for every draw call
-- [x] Imgui rendering! (based on `imgui-wgpu`)
-- [x] Allow multiple world transforms per instance from API - condense to one matrix for GPU still of course
-  - Not super happy with this, but it will work for now while hooking up Lutra!
-- [x] Add whole batches of instances at a time - Lutra will ideally dump a whole buffers worth once it fills up
-- [x] Use `interoptopus` crate to generate C# bindings!
-- [x] Fix texture handling by caching them and returning ids instead of owning and sending boxed pointers
-- [x] Add error handling to the rust API
-- [x] Remove the FFIResult type - custom CTypeInfo impls can help interoptopus generate correct out params
-- [ ] Removing textures: intend for removal in batches - invalidate bind group cache to be rebuilt on next use?
-- [x] Data-oriented inputs: render data contains an array of instances and and array of batches
-- [@] API usability improvements
-- [ ] Move Lutra specific details (eg. transform -> matrix conversion) to ffi crate (and rename that to lutra-kelp???)
+## v0.1.0
 
-## Next iteration
-
-- [ ] Investigate dynamic batching with something like `etagere` or `guillotiere`
+- [x] Investigate dynamic batching with something like `etagere` or `guillotiere`
   - This could allow us to batch all our draws into one or a few calls by allocating textures on an atlas
+- [ ] New separate `RenderTarget` pipeline - keep it very simple
+- [ ] fix imgui rendering! let's just use our version of the renderer with `imgui` dep
+- [ ] Finish wgsl versions of shaders
+- [ ] Move Lutra specific details (eg. transform -> matrix conversion) to ffi crate (and rename that to lutra-kelp???)
+- [ ] Removing textures: intend for removal in batches at start of frame
+- [ ] Custom fragment shaders
+  - Shader parameters - describe the layout at creation time
+  - What if we open up the remaining 64 bytes of push constants? that will cover most shaders used in tmfbma/dddb
+  - Will still need a binding slot for texture/buffer parameters etc, so not a huge win
+  - Write guide to writing custom shaders
 - [ ] Benchmarks!
