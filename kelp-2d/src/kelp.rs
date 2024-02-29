@@ -88,7 +88,7 @@ impl Kelp {
         let default_vertex_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Glsl {
-                shader: Cow::Borrowed(include_str!("../shaders/shader.vert")),
+                shader: Cow::Borrowed(include_str!("../shaders/glsl/sprite.vert")),
                 stage: wgpu::naga::ShaderStage::Vertex,
                 defines: Default::default(),
             },
@@ -97,7 +97,7 @@ impl Kelp {
         let default_fragment_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Glsl {
-                shader: Cow::Borrowed(include_str!("../shaders/shader.frag")),
+                shader: Cow::Borrowed(include_str!("../shaders/glsl/sprite.frag")),
                 stage: wgpu::naga::ShaderStage::Fragment,
                 defines: Default::default(),
             },
